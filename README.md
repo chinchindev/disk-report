@@ -4,6 +4,8 @@
 
 Công cụ phân tích chuyên sâu **Dev Caches**, **Project Build Artifacts** (`node_modules`, `target`, `build`, `.dart_tool`, `.next`, `.venv`) và **Dead `PATH` / Biến môi trường Dev** dành cho lập trình viên trên **Windows**, **macOS** và **WSL2**, được xây dựng bằng **Rust (Rayon + WalkDir)** và **Tauri v2**.
 
+![Giao diện ứng dụng DevDiskReport v2.0.0](./assets/app-preview.svg)
+
 ---
 
 ## ✨ Tính năng nổi bật
