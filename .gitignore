@@ -1,0 +1,11 @@
+# Rust / Tauri build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Temporary & Backup files
+env-backup-*.txt
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db

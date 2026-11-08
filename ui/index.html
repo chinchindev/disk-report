@@ -1,0 +1,2161 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bản đồ Dung lượng & Môi trường Dev - Disk & Env Report</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --bg: #070b14;
+      --card: #0f172a;
+      --border: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --root-font-size: 17.5px;
+    }
+    html {
+      font-size: var(--root-font-size);
+    }
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .treemap-tile {
+      transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      box-sizing: border-box;
+    }
+    .treemap-tile:hover {
+      filter: brightness(1.18);
+      transform: scale(1.005);
+      z-index: 30;
+      box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.75);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    #treemap-tooltip {
+      pointer-events: none;
+      transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 lg:p-8 custom-scrollbar">
+  <!-- Floating Custom Tooltip for Treemap -->
+  <div id="treemap-tooltip" class="fixed z-50 hidden opacity-0 max-w-sm p-4 rounded-xl bg-gray-950/95 backdrop-blur-md border border-gray-700/90 shadow-2xl text-sm text-gray-200 space-y-2"></div>
+
+  <!-- Toast Notification -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <div class="max-w-[1440px] mx-auto space-y-6">
+
+    <!-- Header Section -->
+    <header class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-gray-800/80">
+      <div>
+        <div class="flex items-center gap-3.5">
+          <div class="p-3 bg-gradient-to-br from-blue-500/20 to-indigo-600/20 text-blue-400 border border-blue-500/30 rounded-2xl shadow-inner">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Bản đồ Dung lượng & Môi trường Dev</h1>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">UI/UX Pro v2</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Read-Only Safe
+              </span>
+            </div>
+            <p class="text-sm md:text-base text-gray-300 mt-1">Phân tích chuyên sâu <span class="text-white font-semibold">Dev Caches</span>, <span class="text-white font-semibold">Project Build Artifacts</span> (<code class="text-indigo-300">node_modules</code>, <code class="text-indigo-300">target</code>, <code class="text-indigo-300">build</code>) & <span class="text-white font-semibold">Dead PATH / ENV</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <!-- Font Size Adjuster -->
+        <div class="inline-flex items-center rounded-xl bg-gray-900 border border-gray-800 p-1 text-xs" title="Điều chỉnh kích thước chữ hiển thị">
+          <span class="px-2 text-gray-400 font-medium">Cỡ chữ:</span>
+          <button onclick="setFontSize(15.5)" id="font-btn-sm" class="px-2 py-1 rounded-lg text-gray-400 hover:text-white font-semibold transition">A-</button>
+          <button onclick="setFontSize(17.5)" id="font-btn-md" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold transition">A (Lớn)</button>
+          <button onclick="setFontSize(19.5)" id="font-btn-lg" class="px-2 py-1 rounded-lg text-gray-400 hover:text-white font-extrabold transition">A+</button>
+        </div>
+
+        <div class="text-xs md:text-sm px-3 py-1.5 rounded-xl bg-gray-900/90 text-gray-300 border border-gray-800 flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span id="scan-time-text">Đã đồng bộ sizes.csv</span>
+        </div>
+        <button onclick="runRustLiveScan()" id="btn-live-scan" class="text-xs md:text-sm px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 font-semibold transition" title="Quét trực tiếp đa luồng bằng Rust Backend (Windows / macOS)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <span id="btn-live-scan-text">Quét trực tiếp (Rust)</span>
+        </button>
+        <button onclick="copyScanCommand()" id="btn-copy-scan" class="text-xs md:text-sm px-3.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 font-medium transition" title="Sao chép lệnh chạy scan.ps1 trong PowerShell">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+          <span>Copy lệnh .ps1</span>
+        </button>
+        <button onclick="window.location.reload()" class="text-xs md:text-sm px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-300 border border-gray-800 flex items-center gap-1.5 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          <span>Tải lại</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Stat Cards Overview (5 Interactive Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div onclick="switchMainTab('caches'); setFilter('all');" class="cursor-pointer group bg-gray-900/75 hover:bg-gray-900 border border-gray-800/90 hover:border-gray-700 rounded-2xl p-4 shadow-sm transition">
+        <div class="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
+          <span>Tổng Đã Quét</span>
+          <span id="stat-files-total" class="text-xs font-mono text-gray-400 normal-case">0 files</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="stat-total" class="text-2xl md:text-3xl font-extrabold text-white group-hover:text-blue-400 transition">0 GB</span>
+          <span id="stat-count" class="text-sm text-gray-400">0 mục</span>
+        </div>
+        <div class="mt-1.5 text-xs text-gray-400">Toàn bộ Caches, SDKs & Artifacts</div>
+      </div>
+
+      <div onclick="switchMainTab('caches'); setFilter('safe');" class="cursor-pointer group bg-emerald-950/20 hover:bg-emerald-950/30 border border-emerald-900/40 hover:border-emerald-500/40 rounded-2xl p-4 shadow-sm transition">
+        <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+          <span>Xóa An Toàn</span>
+          <span class="px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-300 font-bold">100% Safe</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="stat-safe" class="text-2xl md:text-3xl font-extrabold text-emerald-400">0 GB</span>
+          <span id="stat-safe-count" class="text-sm text-emerald-400/90">0 mục</span>
+        </div>
+        <div class="mt-1.5 text-xs text-emerald-300/80">Tự tải lại khi build, không mất code</div>
+      </div>
+
+      <div onclick="switchMainTab('caches'); setFilter('review');" class="cursor-pointer group bg-amber-950/20 hover:bg-amber-950/30 border border-amber-900/40 hover:border-amber-500/40 rounded-2xl p-4 shadow-sm transition">
+        <div class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between">
+          <span>Cần Xem Lại</span>
+          <span id="stat-increased-pill" class="px-2 py-0.5 rounded text-xs bg-rose-500/20 text-rose-300">0 mới tăng</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="stat-review" class="text-2xl md:text-3xl font-extrabold text-amber-400">0 GB</span>
+          <span id="stat-review-count" class="text-sm text-amber-400/90">0 mục</span>
+        </div>
+        <div class="mt-1.5 text-xs text-amber-300/80">Android SDK, AVD, Docker, Sessions</div>
+      </div>
+
+      <div onclick="switchMainTab('artifacts');" class="cursor-pointer group bg-purple-950/20 hover:bg-purple-950/30 border border-purple-900/40 hover:border-purple-500/40 rounded-2xl p-4 shadow-sm transition">
+        <div class="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center justify-between">
+          <span>Build Artifacts</span>
+          <span id="stat-stale-badge" class="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-300">0 cũ &gt;30d</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="stat-artifacts" class="text-2xl md:text-3xl font-extrabold text-purple-400">0 MB</span>
+          <span id="stat-artifacts-count" class="text-sm text-purple-400/90">0 mục</span>
+        </div>
+        <div class="mt-1.5 text-xs text-purple-300/80">node_modules, target, build, .venv</div>
+      </div>
+
+      <div class="bg-blue-950/25 border border-blue-800/50 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-between">
+          <span>Sẽ Giải Phóng</span>
+          <span id="stat-selected-count" class="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-300">0 mục</span>
+        </div>
+        <div class="mt-2 flex items-baseline justify-between gap-2">
+          <span id="stat-selected" class="text-2xl md:text-3xl font-extrabold text-blue-400">0 MB</span>
+          <span id="stat-selected-files" class="text-xs text-blue-300/80 font-mono">0 files</span>
+        </div>
+        <div class="mt-2 w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+          <div id="stat-selected-bar" class="bg-gradient-to-r from-emerald-400 to-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ecosystem Storage Breakdown Bar (macOS / GitHub style) -->
+    <div class="bg-gray-900/85 border border-gray-800/90 rounded-2xl p-4 shadow-lg">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm font-bold text-gray-200">Phân bổ dung lượng theo Hệ sinh thái Công nghệ</span>
+          <span class="text-xs text-gray-400">(Nhấp vào từng nhóm để lọc nhanh)</span>
+        </div>
+        <button onclick="setCategoryFilter('')" id="btn-clear-cat" class="hidden text-xs text-blue-400 hover:text-blue-300 font-semibold">
+          ✕ Bỏ lọc hệ sinh thái
+        </button>
+      </div>
+      <!-- Stacked Bar -->
+      <div id="category-bar" class="w-full h-4 rounded-xl overflow-hidden flex bg-gray-950 p-0.5 gap-0.5 border border-gray-800"></div>
+      <!-- Category Legend Pills -->
+      <div id="category-legend" class="flex flex-wrap gap-2 mt-3"></div>
+    </div>
+
+    <!-- Treemap Container -->
+    <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-5 shadow-xl">
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-4">
+        <div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+              Bản đồ nhiệt dung lượng (Interactive Treemap)
+            </h2>
+            <!-- Source Toggle -->
+            <div class="inline-flex rounded-xl bg-gray-950 p-1 border border-gray-800 text-xs md:text-sm">
+              <button onclick="setTreemapMode('all')" id="tm-mode-all" class="px-3 py-1 rounded-lg bg-indigo-600 text-white font-medium transition">Tất cả</button>
+              <button onclick="setTreemapMode('caches')" id="tm-mode-caches" class="px-3 py-1 rounded-lg text-gray-400 hover:text-white transition">Caches & SDKs</button>
+              <button onclick="setTreemapMode('artifacts')" id="tm-mode-artifacts" class="px-3 py-1 rounded-lg text-gray-400 hover:text-white transition">Build Artifacts</button>
+            </div>
+            <!-- Scale Toggle: Balanced (Sqrt) vs Linear -->
+            <div class="inline-flex rounded-xl bg-gray-950 p-1 border border-gray-800 text-xs md:text-sm" title="Chế độ Cân bằng giúp các thư mục nhỏ (20MB - 500MB) không bị Android SDK (33GB) ép dẹp, dễ đọc và dễ click hơn">
+              <button onclick="setTreemapScale('sqrt')" id="tm-scale-sqrt" class="px-3 py-1 rounded-lg bg-emerald-600/80 text-white font-medium transition">🔍 Cân bằng hiển thị</button>
+              <button onclick="setTreemapScale('linear')" id="tm-scale-linear" class="px-3 py-1 rounded-lg text-gray-400 hover:text-white transition">📏 Tỷ lệ tuyệt đối</button>
+            </div>
+          </div>
+          <p class="text-xs md:text-sm text-gray-400 mt-1">Di chuột vào từng ô để xem phân tích chi tiết • <strong class="text-gray-200">Nhấp chuột trái</strong> để chọn/bỏ chọn đưa vào script dọn dẹp.</p>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs md:text-sm flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded bg-emerald-500 inline-block"></span>
+            <span class="text-gray-300">Xóa an toàn</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded bg-amber-500 inline-block"></span>
+            <span class="text-gray-300">Cần xem lại</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded bg-blue-500 ring-2 ring-white inline-block"></span>
+            <span class="text-gray-300">Đã tick chọn</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded bg-rose-500 inline-block ring-2 ring-rose-400"></span>
+            <span class="text-gray-300">Tăng dung lượng</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Treemap Canvas Area -->
+      <div id="treemap-container" class="w-full h-[480px] relative rounded-xl overflow-hidden bg-gray-950/80 border border-gray-800/90">
+        <!-- Tiles dynamically rendered -->
+      </div>
+    </div>
+
+    <!-- Main Content: 3-Tab Dev Scanner & PowerShell Studio -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: Multi-Tab Checklist (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+        <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-5 shadow-xl">
+
+          <!-- Primary Category Tabs -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-gray-800">
+            <div class="flex flex-wrap gap-2">
+              <button onclick="switchMainTab('caches')" id="tab-caches" class="px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 bg-blue-600 text-white shadow transition">
+                <span>📦 Dev Caches & SDKs</span>
+                <span id="badge-tab-caches" class="px-2 py-0.5 rounded-full bg-black/30 text-xs">0</span>
+              </button>
+              <button onclick="switchMainTab('artifacts')" id="tab-artifacts" class="px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+                <span>🏗️ Project Build Artifacts</span>
+                <span id="badge-tab-artifacts" class="px-2 py-0.5 rounded-full bg-black/30 text-xs">0</span>
+              </button>
+              <button onclick="switchMainTab('env')" id="tab-env" class="px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+                <span>🔗 Dead PATH & Biến ENV</span>
+                <span id="badge-tab-env" class="px-2 py-0.5 rounded-full bg-rose-500/30 text-rose-200 text-xs">0</span>
+              </button>
+            </div>
+
+            <!-- Sort Selector -->
+            <div class="flex items-center gap-2 text-xs md:text-sm">
+              <span class="text-gray-400">Sắp xếp:</span>
+              <select id="sort-select" onchange="setSortOrder(this.value)" class="bg-gray-950 border border-gray-800 text-gray-200 rounded-lg px-3 py-1.5 text-xs md:text-sm outline-none focus:border-blue-500">
+                <option value="size-desc">Dung lượng giảm dần</option>
+                <option value="files-desc">Số lượng file nhiều nhất (I/O)</option>
+                <option value="delta-desc">Mới tăng dung lượng</option>
+                <option value="name-asc">Tên A → Z</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Smart 1-Click Presets Bar -->
+          <div class="pt-3.5 pb-2.5 border-b border-gray-800/60">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">⚡ Chọn nhanh thông minh:</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="applyPreset('safe-all')" class="text-xs md:text-sm px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-medium transition">
+                  🟢 Tất cả Cache an toàn
+                </button>
+                <button onclick="applyPreset('io-heavy')" class="text-xs md:text-sm px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium transition" title="Chọn các mục Safe có trên 10.000 file nhỏ gây chậm Windows Defender & NTFS">
+                  🚀 Cache nhiều file nhỏ (&gt;10k files)
+                </button>
+                <button onclick="applyPreset('stale-artifacts')" class="text-xs md:text-sm px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-medium transition">
+                  🧹 Dự án cũ (&gt;30 ngày)
+                </button>
+                <button onclick="deselectAll()" class="text-xs md:text-sm px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">
+                  ✕ Bỏ chọn hết
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Search & Sub-Filter Pills -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 pb-2">
+            <div class="relative flex-1">
+              <svg class="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <input type="text" id="search-input" oninput="renderCurrentTabList()" placeholder="Nhấn '/' để tìm công cụ, đường dẫn, category (vd: gradle, npm, docker, sessions)..."
+                class="w-full bg-gray-950 border border-gray-800 focus:border-blue-500 rounded-xl pl-10 pr-8 py-2 text-xs md:text-sm text-gray-200 placeholder-gray-500 outline-none transition">
+              <button onclick="clearSearch()" id="btn-clear-search" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-sm">✕</button>
+            </div>
+
+            <div id="subfilter-bar" class="flex gap-1.5 text-xs md:text-sm flex-wrap">
+              <button onclick="setFilter('all')" id="filter-all" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium">Tất cả</button>
+              <button onclick="setFilter('safe')" id="filter-safe" class="px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700">An toàn</button>
+              <button onclick="setFilter('review')" id="filter-review" class="px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700">Xem lại</button>
+              <button onclick="setFilter('increased')" id="filter-increased" class="px-3 py-1.5 rounded-lg bg-gray-800 text-rose-300 hover:bg-gray-700">⚠️ Tăng</button>
+            </div>
+          </div>
+
+          <!-- Scrollable List -->
+          <div id="items-list" class="mt-3 space-y-3 max-h-[680px] overflow-y-auto pr-1 custom-scrollbar">
+            <!-- Dynamically populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Clean Script Studio (5 cols) -->
+      <div class="lg:col-span-5 space-y-4">
+        <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-5 shadow-xl sticky top-6 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <div>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                PowerShell Cleanup Studio
+              </h3>
+              <p class="text-xs md:text-sm text-gray-400">Tự động sinh script chuẩn theo lựa chọn của bạn</p>
+            </div>
+            <span id="selected-badge" class="text-xs md:text-sm px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold">
+              0 mục đã chọn
+            </span>
+          </div>
+
+          <!-- Dynamic Risk Assessment Banner -->
+          <div id="risk-banner" class="p-3.5 rounded-xl bg-gray-950/80 border border-gray-800 text-xs md:text-sm flex items-start justify-between gap-2.5">
+            <div class="flex items-start gap-2.5">
+              <span id="risk-icon" class="text-lg leading-none mt-0.5">🛡️</span>
+              <div>
+                <div id="risk-title" class="font-bold text-gray-200">Chưa chọn mục nào</div>
+                <div id="risk-desc" class="text-gray-400 text-xs mt-0.5">Chọn các mục bên trái hoặc bấm "Tất cả Cache an toàn" để bắt đầu.</div>
+              </div>
+            </div>
+            <button id="btn-unselect-risky" onclick="unselectRiskyItems()" class="hidden flex-shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-medium transition">
+              Bỏ mục rủi ro
+            </button>
+          </div>
+
+          <!-- WinTrash-inspired Safety Options -->
+          <div class="p-3.5 rounded-xl bg-gray-950/90 border border-gray-800/90 space-y-2.5">
+            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">Tùy chọn bảo vệ an toàn (WinTrash Safety)</div>
+            <label class="flex items-center gap-2.5 text-xs md:text-sm text-gray-300 cursor-pointer select-none hover:text-white transition">
+              <input type="checkbox" id="opt-whatif" onchange="updateUI()" class="w-4 h-4 rounded border-gray-700 text-blue-600 bg-gray-900">
+              <span>Chế độ chạy thử <code class="text-amber-300 bg-gray-900 px-1.5 py-0.5 rounded">-WhatIf</code> (Dry-run: chỉ kiểm tra, không xóa thật)</span>
+            </label>
+            <label class="flex items-center gap-2.5 text-xs md:text-sm text-gray-300 cursor-pointer select-none hover:text-white transition">
+              <input type="checkbox" id="opt-stop-daemons" checked onchange="updateUI()" class="w-4 h-4 rounded border-gray-700 text-blue-600 bg-gray-900">
+              <span>Tự dừng <code class="text-cyan-300 bg-gray-900 px-1 py-0.5 rounded">gradle</code> / <code class="text-cyan-300 bg-gray-900 px-1 py-0.5 rounded">adb</code> daemon trước khi xóa để tránh lỗi khóa file</span>
+            </label>
+            <label class="flex items-center gap-2.5 text-xs md:text-sm text-gray-300 cursor-pointer select-none hover:text-white transition">
+              <input type="checkbox" id="opt-backup-env" checked onchange="updateUI()" class="w-4 h-4 rounded border-gray-700 text-blue-600 bg-gray-900">
+              <span>Tự sao lưu biến <code class="text-emerald-300 bg-gray-900 px-1 py-0.5 rounded">PATH / ENV</code> ra file trước khi sửa</span>
+            </label>
+          </div>
+
+          <!-- Studio View Switcher: Script (Win/macOS) vs Summary -->
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <div class="inline-flex rounded-lg bg-gray-950 p-1 border border-gray-800 text-xs md:text-sm">
+                <button onclick="setStudioTab('script')" id="studio-tab-script" class="px-3 py-1 rounded-md bg-blue-600 text-white font-medium transition">Mã Script</button>
+                <button onclick="setStudioTab('summary')" id="studio-tab-summary" class="px-3 py-1 rounded-md text-gray-400 hover:text-white transition">Tóm tắt</button>
+              </div>
+              <div class="inline-flex rounded-lg bg-gray-950 p-1 border border-gray-800 text-xs" title="Chọn hệ điều hành sinh Script">
+                <button onclick="setScriptOs('win')" id="os-btn-win" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white font-semibold transition">🪟 Windows (.ps1)</button>
+                <button onclick="setScriptOs('mac')" id="os-btn-mac" class="px-2.5 py-1 rounded-md text-gray-400 hover:text-white font-semibold transition">🍎 macOS (.sh)</button>
+              </div>
+              <span id="script-line-count" class="text-xs font-mono text-gray-400">0 dòng</span>
+            </div>
+
+            <pre id="script-preview" class="p-4 bg-gray-950 text-emerald-400 text-xs md:text-sm font-mono rounded-xl border border-gray-800 overflow-x-auto max-h-[360px] custom-scrollbar leading-relaxed select-all"># Hãy tick chọn các mục ở danh sách bên trái để tự động tạo script tương ứng...</pre>
+            <div id="summary-preview" class="hidden p-3.5 bg-gray-950 text-xs md:text-sm rounded-xl border border-gray-800 max-h-[360px] overflow-y-auto custom-scrollbar space-y-2"></div>
+
+            <div class="mt-3 flex gap-2">
+              <button onclick="copyScript()" id="btn-copy" class="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs md:text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/20 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                <span>Sao chép Script</span>
+              </button>
+              <button onclick="downloadScript()" id="btn-download-script" class="py-2.5 px-4 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium text-xs md:text-sm border border-gray-700 flex items-center justify-center gap-1.5 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span id="btn-download-text">Tải file .ps1</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Footer info -->
+          <div class="pt-3 border-t border-gray-800 text-xs text-gray-400 flex items-center justify-between flex-wrap gap-2">
+            <span>Phím tắt: <kbd class="px-1.5 py-0.5 bg-gray-800 text-gray-300 rounded">/</kbd> Tìm kiếm • <kbd class="px-1.5 py-0.5 bg-gray-800 text-gray-300 rounded">Esc</kbd> Xóa lọc</span>
+            <span>Lưu tại: <code class="text-gray-300">~/disk-report/sizes.csv</code></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // === BEGIN_AUTO_DATA ===
+    const scanPayload = {
+  "ScanTime": "2026-11-07 17:56:36",
+  "Caches": [
+    {
+      "Path": "C:\\Users\\chinh\\AppData\\Local\\Android\\Sdk",
+      "Name": "Android SDK & Build Tools",
+      "Category": "Mobile SDK",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 250381,
+      "SizeBytes": 35847439960,
+      "SizeMB": 34186.78,
+      "SizeGB": 33.39,
+      "PreviousSizeMB": 34186.78,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "sdkmanager --uninstall \"...\"",
+      "Impact": "Xóa các phiên bản Android SDK, Build-tools, NDK và system images. Bạn sẽ phải tải lại từ Android Studio nếu cần compile app.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.android\\avd",
+      "Name": "Android Virtual Devices (AVD Images)",
+      "Category": "Mobile SDK",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 82,
+      "SizeBytes": 9001737136,
+      "SizeMB": 8584.73,
+      "SizeGB": 8.38,
+      "PreviousSizeMB": 8584.73,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Xóa qua Android Studio Device Manager",
+      "Impact": "Xóa các máy ảo Android giả lập đã tạo và toàn bộ dữ liệu app đã cài trên máy ảo đó.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\AppData\\Local\\Docker",
+      "Name": "Docker Desktop & WSL Data",
+      "Category": "Docker",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 42,
+      "SizeBytes": 2845317913,
+      "SizeMB": 2713.51,
+      "SizeGB": 2.65,
+      "PreviousSizeMB": 2713.51,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "docker system prune -a --volumes",
+      "Impact": "XÓA TOÀN BỘ images, containers không chạy và volumes của Docker. Bạn sẽ phải pull/build lại images từ đầu.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.jdks",
+      "Name": "Downloaded Java JDKs",
+      "Category": "Runtimes / SDK",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 4188,
+      "SizeBytes": 2075123250,
+      "SizeMB": 1978.99,
+      "SizeGB": 1.93,
+      "PreviousSizeMB": 1978.99,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Remove-Item -Recurse -Force \"$HOME\\.jdks\"",
+      "Impact": "Xóa các bộ cài OpenJDK đã tải qua IDE. Dự án cần JDK đó sẽ phải chỉ định lại đường dẫn.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "/home/chinchin/.vscode-server",
+      "Name": "[WSL2] VS Code Remote WSL Server (~/.vscode-server)",
+      "Category": "WSL2 / Linux",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 8734,
+      "SizeBytes": 1475856705,
+      "SizeMB": 1407.49,
+      "SizeGB": 1.37,
+      "PreviousSizeMB": 1407.49,
+      "DeltaMB": 0.0,
+      "Increased": false,
+      "CleanCmd": "wsl -e bash -c \"rm -rf ~/.vscode-server/bin/*\"",
+      "Impact": "Chứa VS Code Server và extensions cài trong WSL2.",
+      "ScanTime": "2026-11-07 17:56:36"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.vscode\\extensions",
+      "Name": "VS Code Active Extensions",
+      "Category": "IDE Extensions",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 66885,
+      "SizeBytes": 1251475774,
+      "SizeMB": 1193.5,
+      "SizeGB": 1.17,
+      "PreviousSizeMB": 1193.5,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "code --uninstall-extension <id>",
+      "Impact": "Xóa các tiện ích mở rộng đã cài trên VS Code. Sẽ phải cài đặt lại.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\AppData\\Local\\JetBrains",
+      "Name": "JetBrains IDEs Caches & Indexes",
+      "Category": "IDE Data",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 2727,
+      "SizeBytes": 961654111,
+      "SizeMB": 917.1,
+      "SizeGB": 0.9,
+      "PreviousSizeMB": 917.1,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Mở JetBrains IDE -> File -> Invalidate Caches",
+      "Impact": "Xóa bộ chỉ mục mã nguồn (indexes) và plugins của Android Studio / IntelliJ IDEA.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\AppData\\Local\\npm-cache",
+      "Name": "NPM Global Cache",
+      "Category": "Node.js / JS",
+      "Group": "Có thể xóa an toàn",
+      "FileCount": 37825,
+      "SizeBytes": 495414788,
+      "SizeMB": 472.46,
+      "SizeGB": 0.46,
+      "PreviousSizeMB": 472.46,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "npm cache clean --force",
+      "Impact": "Xóa cache các gói npm đã tải tạm thời. Dự án không bị ảnh hưởng; lần npm install tiếp theo sẽ tải lại.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "/home/chinchin/.antigravity-server",
+      "Name": "[WSL2] Antigravity Remote Server (~/.antigravity-server)",
+      "Category": "WSL2 / Linux",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 2,
+      "SizeBytes": 387597088,
+      "SizeMB": 369.64,
+      "SizeGB": 0.36,
+      "PreviousSizeMB": 186.87,
+      "DeltaMB": 182.77,
+      "Increased": true,
+      "CleanCmd": "wsl -e bash -c \"rm -rf ~/.antigravity-server/bin/*\"",
+      "Impact": "Chứa nhân Antigravity Server chạy trong WSL2. Chỉ xóa khi muốn cài lại server mới.",
+      "ScanTime": "2026-11-07 17:56:36"
+    },
+    {
+      "Path": "/home/chinchin/.gemini",
+      "Name": "[WSL2] Antigravity Brain & Sessions (~/.gemini)",
+      "Category": "WSL2 / Linux",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 222,
+      "SizeBytes": 293920772,
+      "SizeMB": 280.3,
+      "SizeGB": 0.27,
+      "PreviousSizeMB": 19.57,
+      "DeltaMB": 260.73,
+      "Increased": true,
+      "CleanCmd": "wsl -e bash -c \"rm -rf ~/.gemini/antigravity/brain/*\"",
+      "Impact": "Chứa dữ liệu phiên làm việc, brain logs và artifacts của Agent bên trong WSL2.",
+      "ScanTime": "2026-11-07 17:56:36"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\AppData\\Local\\Temp",
+      "Name": "Windows Temp (Dev / Build Temp)",
+      "Category": "System / Build Temp",
+      "Group": "Có thể xóa an toàn",
+      "FileCount": 437,
+      "SizeBytes": 288065282,
+      "SizeMB": 274.72,
+      "SizeGB": 0.27,
+      "PreviousSizeMB": 274.72,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Remove-Item -Path \"$env:LOCALAPPDATA\\Temp\\*\" -Recurse -Force -ErrorAction SilentlyContinue",
+      "Impact": "Xóa các file tạm do trình biên dịch, IDE và hệ thống tạo ra. Các file đang mở sẽ được tự động bỏ qua an toàn.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "/home/chinchin/.npm",
+      "Name": "[WSL2] NPM Global Cache (~/.npm)",
+      "Category": "WSL2 / Linux",
+      "Group": "Có thể xóa an toàn",
+      "FileCount": 33,
+      "SizeBytes": 262156015,
+      "SizeMB": 250.01,
+      "SizeGB": 0.24,
+      "PreviousSizeMB": 250.01,
+      "DeltaMB": 0.0,
+      "Increased": false,
+      "CleanCmd": "wsl -e bash -c \"npm cache clean --force\"",
+      "Impact": "Xóa cache các gói npm bên trong môi trường WSL2 Linux (~250MB+). Không ảnh hưởng tới project.",
+      "ScanTime": "2026-11-07 17:56:36"
+    },
+    {
+      "Path": "/home/chinchin/.cache",
+      "Name": "[WSL2] Linux Dev & CLI Cache (~/.cache: claude, copilot, gh, pip)",
+      "Category": "WSL2 / Linux",
+      "Group": "Có thể xóa an toàn",
+      "FileCount": 284,
+      "SizeBytes": 181596870,
+      "SizeMB": 173.18,
+      "SizeGB": 0.17,
+      "PreviousSizeMB": 173.18,
+      "DeltaMB": 0.0,
+      "Increased": false,
+      "CleanCmd": "wsl -e bash -c \"rm -rf ~/.cache/*\"",
+      "Impact": "Xóa bộ nhớ đệm các công cụ CLI bên trong WSL2 (Claude CLI, Copilot, GitHub CLI, pip...). Tự tạo lại khi dùng.",
+      "ScanTime": "2026-11-07 17:56:36"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.antigravity-ide\\extensions",
+      "Name": "Antigravity IDE Active Extensions",
+      "Category": "IDE Extensions",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 35171,
+      "SizeBytes": 116270661,
+      "SizeMB": 110.88,
+      "SizeGB": 0.11,
+      "PreviousSizeMB": 110.88,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Gỡ extension qua giao diện IDE Extensions",
+      "Impact": "Xóa các tiện ích mở rộng đang hoạt động của IDE (Flutter, Python, Go...). Sẽ phải cài lại.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.gemini\\antigravity-ide\\conversations",
+      "Name": "Antigravity IDE Sessions (GUI Chat)",
+      "Category": "Sessions",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 4,
+      "SizeBytes": 32912008,
+      "SizeMB": 31.39,
+      "SizeGB": 0.03,
+      "PreviousSizeMB": 31.39,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Remove-Item -Recurse -Force \"$HOME\\.gemini\\antigravity-ide\\conversations\\*\"",
+      "Impact": "Mất lịch sử các phiên chat bên trong giao diện Antigravity IDE.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.bundle\\cache",
+      "Name": "Ruby Bundler Cache",
+      "Category": "Ruby",
+      "Group": "Có thể xóa an toàn",
+      "FileCount": 805,
+      "SizeBytes": 31023146,
+      "SizeMB": 29.59,
+      "SizeGB": 0.03,
+      "PreviousSizeMB": 29.59,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "bundle clean --force",
+      "Impact": "Xóa các gem cũ không còn dùng trong Gemfile. Không ảnh hưởng đến các gem đang sử dụng.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.gemini\\antigravity\\brain",
+      "Name": "Antigravity Agent Brain & Logs",
+      "Category": "Sessions",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 294,
+      "SizeBytes": 14788101,
+      "SizeMB": 14.1,
+      "SizeGB": 0.01,
+      "PreviousSizeMB": 14.1,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Remove-Item -Recurse -Force \"$HOME\\.gemini\\antigravity\\brain\\*\"",
+      "Impact": "Xóa toàn bộ logs các tác vụ nền, subagents và artifacts của Agent.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.gemini\\antigravity-ide\\brain",
+      "Name": "Antigravity IDE Brain & Task Logs",
+      "Category": "Sessions",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 249,
+      "SizeBytes": 7135667,
+      "SizeMB": 6.81,
+      "SizeGB": 0.01,
+      "PreviousSizeMB": 6.81,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Remove-Item -Recurse -Force \"$HOME\\.gemini\\antigravity-ide\\brain\\*\"",
+      "Impact": "Xóa dữ liệu tác vụ nền và lịch sử task của IDE.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\.gemini\\antigravity\\conversations",
+      "Name": "Antigravity Agent Sessions (CLI / Core)",
+      "Category": "Sessions",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 3,
+      "SizeBytes": 5308416,
+      "SizeMB": 5.06,
+      "SizeGB": 0,
+      "PreviousSizeMB": 5.06,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "Remove-Item -Recurse -Force \"$HOME\\.gemini\\antigravity\\conversations\\*\"",
+      "Impact": "MẤT TOÀN BỘ lịch sử các cuộc hội thoại và ngữ cảnh trước đây với Antigravity Agent.",
+      "ScanTime": "2026-11-07 23:54:43"
+    },
+    {
+      "Path": "/home/chinchin/.dotnet",
+      "Name": "[WSL2] .NET SDK & Telemetry Cache (~/.dotnet)",
+      "Category": "WSL2 / Linux",
+      "Group": "Cần xem lại trước khi xóa",
+      "FileCount": 4,
+      "SizeBytes": 249180,
+      "SizeMB": 0.24,
+      "SizeGB": 0.0,
+      "PreviousSizeMB": 0.24,
+      "DeltaMB": 0.0,
+      "Increased": false,
+      "CleanCmd": "wsl -e bash -c \"rm -rf ~/.dotnet/TieredPGO/*\"",
+      "Impact": "Chứa cấu hình và cache của .NET SDK bên trong WSL2.",
+      "ScanTime": "2026-11-07 17:56:36"
+    },
+    {
+      "Path": "C:\\Users\\chinh\\AppData\\Local\\Pub\\Cache",
+      "Name": "Dart & Flutter Pub Cache",
+      "Category": "Dart / Flutter",
+      "Group": "Có thể xóa an toàn",
+      "FileCount": 1,
+      "SizeBytes": 370,
+      "SizeMB": 0,
+      "SizeGB": 0,
+      "PreviousSizeMB": 0,
+      "DeltaMB": 0,
+      "Increased": false,
+      "CleanCmd": "dart pub cache clean -f",
+      "Impact": "Xóa các package Dart/Flutter đã tải về từ pub.dev. Khi chạy flutter pub get ở dự án, package sẽ được tải lại.",
+      "ScanTime": "2026-11-07 23:54:43"
+    }
+  ],
+  "Artifacts": [],
+  "EnvIssues": [
+    {
+      "Id": "PATH-DEAD-User-0",
+      "Type": "Dead PATH",
+      "Scope": "User",
+      "VarName": "PATH (User)",
+      "TargetValue": "C:\\Ruby31-x64\\bin",
+      "Status": "Thư mục không tồn tại",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn 'C:\\Ruby31-x64\\bin' đã bị xóa hoặc gỡ cài đặt nhưng vẫn còn tồn tại trong PATH (User).",
+      "CleanCmd": "$p = [Environment]::GetEnvironmentVariable('Path', 'User'); $newP = ($p -split ';' | Where-Object { $_.Trim().Trim('\"') -ne 'C:\\Ruby31-x64\\bin' }) -join ';'; [Environment]::SetEnvironmentVariable('Path', $newP, 'User')"
+    },
+    {
+      "Id": "PATH-DEAD-User-1",
+      "Type": "Dead PATH",
+      "Scope": "User",
+      "VarName": "PATH (User)",
+      "TargetValue": "C:\\Program Files\\JetBrains\\IntelliJ IDEA 2021.3.1\\bin",
+      "Status": "Thư mục không tồn tại",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn 'C:\\Program Files\\JetBrains\\IntelliJ IDEA 2021.3.1\\bin' đã bị xóa hoặc gỡ cài đặt nhưng vẫn còn tồn tại trong PATH (User).",
+      "CleanCmd": "$p = [Environment]::GetEnvironmentVariable('Path', 'User'); $newP = ($p -split ';' | Where-Object { $_.Trim().Trim('\"') -ne 'C:\\Program Files\\JetBrains\\IntelliJ IDEA 2021.3.1\\bin' }) -join ';'; [Environment]::SetEnvironmentVariable('Path', $newP, 'User')"
+    },
+    {
+      "Id": "PATH-DEAD-User-2",
+      "Type": "Dead PATH",
+      "Scope": "User",
+      "VarName": "PATH (User)",
+      "TargetValue": "C:\\Users\\chinh\\AppData\\Local\\Programs\\Antigravity\\bin",
+      "Status": "Thư mục không tồn tại",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn 'C:\\Users\\chinh\\AppData\\Local\\Programs\\Antigravity\\bin' đã bị xóa hoặc gỡ cài đặt nhưng vẫn còn tồn tại trong PATH (User).",
+      "CleanCmd": "$p = [Environment]::GetEnvironmentVariable('Path', 'User'); $newP = ($p -split ';' | Where-Object { $_.Trim().Trim('\"') -ne 'C:\\Users\\chinh\\AppData\\Local\\Programs\\Antigravity\\bin' }) -join ';'; [Environment]::SetEnvironmentVariable('Path', $newP, 'User')"
+    },
+    {
+      "Id": "PATH-DUP-System-3",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\system32",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\system32' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-4",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-5",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\System32\\Wbem",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\System32\\Wbem' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-6",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-7",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\System32\\OpenSSH\\",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\System32\\OpenSSH\\' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-8",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\system32",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\system32' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-9",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-10",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\System32\\Wbem",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\System32\\Wbem' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-11",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\' in System PATH"
+    },
+    {
+      "Id": "PATH-DUP-System-12",
+      "Type": "Duplicate PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\WINDOWS\\System32\\OpenSSH\\",
+      "Status": "Trùng lặp đường dẫn",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn này bị khai báo lặp lại nhiều lần trong biến PATH (System).",
+      "CleanCmd": "# Duplicate entry 'C:\\WINDOWS\\System32\\OpenSSH\\' in System PATH"
+    },
+    {
+      "Id": "PATH-DEAD-System-13",
+      "Type": "Dead PATH",
+      "Scope": "System",
+      "VarName": "PATH (System)",
+      "TargetValue": "C:\\Users\\chinh\\AppData\\Local\\Pub\\Cache\\bin",
+      "Status": "Thư mục không tồn tại",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn 'C:\\Users\\chinh\\AppData\\Local\\Pub\\Cache\\bin' đã bị xóa hoặc gỡ cài đặt nhưng vẫn còn tồn tại trong PATH (System).",
+      "CleanCmd": "$p = [Environment]::GetEnvironmentVariable('Path', 'Machine'); $newP = ($p -split ';' | Where-Object { $_.Trim().Trim('\"') -ne 'C:\\Users\\chinh\\AppData\\Local\\Pub\\Cache\\bin' }) -join ';'; [Environment]::SetEnvironmentVariable('Path', $newP, 'Machine')"
+    },
+    {
+      "Id": "ENV-DEAD-System-NVM_SYMLINK",
+      "Type": "Broken Dev Variable",
+      "Scope": "System",
+      "VarName": "NVM_SYMLINK",
+      "TargetValue": "C:\\Program Files\\nodejs",
+      "Status": "Trỏ tới đường dẫn đã xóa",
+      "Group": "Có thể xóa an toàn",
+      "Impact": "Đường dẫn 'C:\\Program Files\\nodejs' đã bị xóa hoặc gỡ cài đặt nhưng vẫn còn tồn tại trong NVM_SYMLINK.",
+      "CleanCmd": "[Environment]::SetEnvironmentVariable('NVM_SYMLINK', $null, 'Machine')"
+    }
+  ]
+};
+    // === END_AUTO_DATA ===
+
+    let cachesData = [];
+    let artifactsData = [];
+    let envIssuesData = [];
+
+    function normalizePayload(payload) {
+      cachesData = Array.isArray(payload.Caches) ? payload.Caches : (payload.Caches ? [payload.Caches] : []);
+      artifactsData = Array.isArray(payload.Artifacts) ? payload.Artifacts : (payload.Artifacts ? [payload.Artifacts] : []);
+      envIssuesData = Array.isArray(payload.EnvIssues) ? payload.EnvIssues : (payload.EnvIssues ? [payload.EnvIssues] : []);
+      envIssuesData.forEach(it => {
+        if (!it.Impact || typeof it.Impact !== 'string') {
+          if (it.Type === 'Dead PATH') {
+            it.Impact = `Thư mục '${it.TargetValue}' đã bị xóa hoặc gỡ cài đặt nhưng vẫn còn tồn tại trong ${it.VarName}.`;
+          } else {
+            it.Impact = `Biến môi trường ${it.VarName} đang trỏ tới '${it.TargetValue}' không còn tồn tại trên ổ đĩa.`;
+          }
+        }
+      });
+    }
+    normalizePayload(scanPayload);
+
+    let selectedCachePaths = new Set();
+    let selectedArtifactPaths = new Set();
+    let selectedEnvIds = new Set();
+
+    let currentMainTab = 'caches';    // 'caches' | 'artifacts' | 'env'
+    let currentFilter = 'all';        // 'all' | 'safe' | 'review' | 'increased'
+    let currentCategoryFilter = '';   // '' or specific Category name
+    let currentSort = 'size-desc';    // 'size-desc' | 'files-desc' | 'delta-desc' | 'name-asc'
+    let treemapMode = 'all';          // 'all' | 'caches' | 'artifacts'
+    let treemapScale = 'sqrt';        // 'sqrt' (balanced) | 'linear' (exact)
+    let studioTab = 'script';         // 'script' | 'summary'
+    let scriptOs = navigator.platform && navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'mac' : 'win';
+    let grandTotalBytesGlobal = 1;
+
+    const categoryColors = [
+      { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500/30', pill: 'bg-blue-500/15' },
+      { bg: 'bg-emerald-500', text: 'text-emerald-400', border: 'border-emerald-500/30', pill: 'bg-emerald-500/15' },
+      { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500/30', pill: 'bg-amber-500/15' },
+      { bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500/30', pill: 'bg-purple-500/15' },
+      { bg: 'bg-cyan-500', text: 'text-cyan-400', border: 'border-cyan-500/30', pill: 'bg-cyan-500/15' },
+      { bg: 'bg-rose-500', text: 'text-rose-400', border: 'border-rose-500/30', pill: 'bg-rose-500/15' },
+      { bg: 'bg-indigo-500', text: 'text-indigo-400', border: 'border-indigo-500/30', pill: 'bg-indigo-500/15' },
+      { bg: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-500/30', pill: 'bg-teal-500/15' }
+    ];
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colorCls = type === 'success'
+        ? 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200'
+        : 'bg-gray-900/95 border-blue-500/40 text-gray-200';
+      toast.className = `px-3.5 py-2 rounded-xl border shadow-xl text-xs font-medium backdrop-blur-md transition-all duration-300 ${colorCls}`;
+      toast.innerText = msg;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 250);
+      }, 2200);
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes <= 0) return '0 MB';
+      if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+      if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
+      if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+      return bytes + ' B';
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function initStats() {
+      if (scanPayload.ScanTime) {
+        document.getElementById('scan-time-text').innerText = 'Quét lúc: ' + scanPayload.ScanTime;
+      }
+
+      let cacheTotalBytes = 0;
+      let safeBytes = 0;
+      let safeCount = 0;
+      let reviewBytes = 0;
+      let reviewCount = 0;
+      let increasedCount = 0;
+      let totalFiles = 0;
+
+      cachesData.forEach(item => {
+        const b = item.SizeBytes || 0;
+        cacheTotalBytes += b;
+        totalFiles += (item.FileCount || 0);
+        if (item.Increased) increasedCount++;
+        if (item.Group === 'Có thể xóa an toàn') {
+          safeBytes += b;
+          safeCount++;
+        } else {
+          reviewBytes += b;
+          reviewCount++;
+        }
+      });
+
+      let artifactBytes = 0;
+      let staleCount = 0;
+      artifactsData.forEach(item => {
+        artifactBytes += (item.SizeBytes || 0);
+        totalFiles += (item.FileCount || 0);
+        if (item.IsStale) staleCount++;
+      });
+
+      const grandTotalBytes = cacheTotalBytes + artifactBytes;
+      grandTotalBytesGlobal = Math.max(1, grandTotalBytes);
+      const grandCount = cachesData.length + artifactsData.length;
+
+      document.getElementById('stat-total').innerText = formatBytes(grandTotalBytes);
+      document.getElementById('stat-count').innerText = grandCount + ' mục';
+      document.getElementById('stat-files-total').innerText = totalFiles.toLocaleString() + ' files';
+
+      document.getElementById('stat-safe').innerText = formatBytes(safeBytes);
+      document.getElementById('stat-safe-count').innerText = safeCount + ' mục';
+
+      document.getElementById('stat-review').innerText = formatBytes(reviewBytes);
+      document.getElementById('stat-review-count').innerText = reviewCount + ' mục';
+      document.getElementById('stat-increased-pill').innerText = increasedCount + ' mới tăng';
+
+      document.getElementById('stat-artifacts').innerText = formatBytes(artifactBytes);
+      document.getElementById('stat-artifacts-count').innerText = artifactsData.length + ' mục';
+      document.getElementById('stat-stale-badge').innerText = staleCount + ' cũ >30d';
+
+      document.getElementById('badge-tab-caches').innerText = cachesData.length;
+      document.getElementById('badge-tab-artifacts').innerText = artifactsData.length;
+      document.getElementById('badge-tab-env').innerText = envIssuesData.length;
+
+      renderCategoryBreakdown();
+    }
+
+    function renderCategoryBreakdown() {
+      const catMap = {};
+      const allItems = [...cachesData, ...artifactsData];
+      let totalB = 0;
+      allItems.forEach(it => {
+        const b = it.SizeBytes || 0;
+        totalB += b;
+        const c = it.Category || 'Khác';
+        catMap[c] = (catMap[c] || 0) + b;
+      });
+
+      const sortedCats = Object.entries(catMap)
+        .map(([name, bytes]) => ({ name, bytes, pct: totalB > 0 ? (bytes / totalB) * 100 : 0 }))
+        .sort((a, b) => b.bytes - a.bytes);
+
+      const barEl = document.getElementById('category-bar');
+      const legendEl = document.getElementById('category-legend');
+      barEl.innerHTML = '';
+      legendEl.innerHTML = '';
+
+      sortedCats.forEach((cat, idx) => {
+        const color = categoryColors[idx % categoryColors.length];
+        const isActive = currentCategoryFilter === cat.name;
+
+        // Bar segment
+        const seg = document.createElement('div');
+        seg.className = `${color.bg} h-full first:rounded-l-lg last:rounded-r-lg cursor-pointer transition-opacity hover:opacity-90 ${
+          currentCategoryFilter && !isActive ? 'opacity-25' : 'opacity-100'
+        }`;
+        seg.style.width = Math.max(0.8, cat.pct).toFixed(2) + '%';
+        seg.title = `${cat.name}: ${formatBytes(cat.bytes)} (${cat.pct.toFixed(1)}%)`;
+        seg.onclick = () => setCategoryFilter(isActive ? '' : cat.name);
+        barEl.appendChild(seg);
+
+        // Legend pill
+        const pill = document.createElement('button');
+        pill.className = `text-xs md:text-sm px-3 py-1 rounded-lg border flex items-center gap-1.5 transition ${
+          isActive
+            ? `${color.pill} ${color.text} ${color.border} ring-1 ring-current font-bold`
+            : 'bg-gray-950/70 hover:bg-gray-800 text-gray-200 border-gray-800'
+        }`;
+        pill.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded-full ${color.bg}"></span>
+          <span>${escapeHtml(cat.name)}</span>
+          <span class="text-gray-400 font-mono text-xs">${formatBytes(cat.bytes)}</span>
+        `;
+        pill.onclick = () => setCategoryFilter(isActive ? '' : cat.name);
+        legendEl.appendChild(pill);
+      });
+
+      const clearBtn = document.getElementById('btn-clear-cat');
+      if (currentCategoryFilter) clearBtn.classList.remove('hidden');
+      else clearBtn.classList.add('hidden');
+    }
+
+    function setFontSize(px) {
+      document.documentElement.style.setProperty('--root-font-size', px + 'px');
+      try { localStorage.setItem('diskReportFontSize', String(px)); } catch (e) {}
+      const map = { '15.5': 'sm', '17.5': 'md', '19.5': 'lg' };
+      const activeKey = map[String(px)] || 'md';
+      ['sm', 'md', 'lg'].forEach(k => {
+        const btn = document.getElementById('font-btn-' + k);
+        if (!btn) return;
+        if (k === activeKey) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold transition';
+        } else {
+          btn.className = 'px-2 py-1 rounded-lg text-gray-400 hover:text-white font-semibold transition';
+        }
+      });
+      renderTreemap();
+    }
+
+    function setCategoryFilter(catName) {
+      currentCategoryFilter = catName;
+      renderCategoryBreakdown();
+      renderTreemap();
+      renderCurrentTabList();
+    }
+
+    function setTreemapMode(mode) {
+      treemapMode = mode;
+      ['all', 'caches', 'artifacts'].forEach(m => {
+        const btn = document.getElementById('tm-mode-' + m);
+        if (m === mode) {
+          btn.className = 'px-3 py-1 rounded-lg bg-indigo-600 text-white font-medium transition';
+        } else {
+          btn.className = 'px-3 py-1 rounded-lg text-gray-400 hover:text-white transition';
+        }
+      });
+      renderTreemap();
+    }
+
+    function setTreemapScale(scale) {
+      treemapScale = scale;
+      document.getElementById('tm-scale-sqrt').className = scale === 'sqrt'
+        ? 'px-3 py-1 rounded-lg bg-emerald-600/80 text-white font-medium transition'
+        : 'px-3 py-1 rounded-lg text-gray-400 hover:text-white transition';
+      document.getElementById('tm-scale-linear').className = scale === 'linear'
+        ? 'px-3 py-1 rounded-lg bg-emerald-600/80 text-white font-medium transition'
+        : 'px-3 py-1 rounded-lg text-gray-400 hover:text-white transition';
+      renderTreemap();
+    }
+
+    function showTooltip(e, item, isSelected) {
+      const tip = document.getElementById('treemap-tooltip');
+      const pct = ((item.SizeBytes / grandTotalBytesGlobal) * 100).toFixed(1);
+      const isSafe = item.Group === 'Có thể xóa an toàn';
+
+      tip.innerHTML = `
+        <div class="flex items-start justify-between gap-2 border-b border-gray-800 pb-2">
+          <div class="font-bold text-white text-sm md:text-base">${escapeHtml(item.Name)}</div>
+          <span class="px-2 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${
+            isSafe ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+          }">${isSafe ? 'An toàn' : 'Xem lại'}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs md:text-sm pt-1">
+          <div><span class="text-gray-400">Dung lượng:</span> <strong class="text-white">${formatBytes(item.SizeBytes)}</strong> (${pct}%)</div>
+          <div><span class="text-gray-400">Số file:</span> <strong class="text-white">${(item.FileCount || 0).toLocaleString()}</strong></div>
+        </div>
+        ${item.Increased ? `<div class="text-xs md:text-sm text-rose-400 font-semibold">⚠️ Tăng +${item.DeltaMB} MB so với lần quét trước</div>` : ''}
+        <div class="text-xs font-mono text-gray-300 break-all bg-gray-900/90 p-2 rounded border border-gray-800">${escapeHtml(item.Path)}</div>
+        <div class="text-xs md:text-sm text-gray-300 leading-relaxed">${escapeHtml(item.Impact)}</div>
+        <div class="text-xs font-semibold ${isSelected ? 'text-blue-400' : 'text-emerald-400'} pt-1">
+          ${isSelected ? '✓ Đã chọn trong danh sách dọn dẹp (Click để bỏ chọn)' : '💡 Click chuột trái để chọn dọn dẹp mục này'}
+        </div>
+      `;
+      tip.classList.remove('hidden');
+      tip.style.opacity = '1';
+      moveTooltip(e);
+    }
+
+    function moveTooltip(e) {
+      const tip = document.getElementById('treemap-tooltip');
+      const pad = 14;
+      let left = e.clientX + pad;
+      let top = e.clientY + pad;
+      const rect = tip.getBoundingClientRect();
+      if (left + rect.width > window.innerWidth - 12) {
+        left = e.clientX - rect.width - pad;
+      }
+      if (top + rect.height > window.innerHeight - 12) {
+        top = e.clientY - rect.height - pad;
+      }
+      tip.style.left = Math.max(8, left) + 'px';
+      tip.style.top = Math.max(8, top) + 'px';
+    }
+
+    function hideTooltip() {
+      const tip = document.getElementById('treemap-tooltip');
+      tip.style.opacity = '0';
+      tip.classList.add('hidden');
+    }
+
+    function renderTreemap() {
+      const container = document.getElementById('treemap-container');
+      container.innerHTML = '';
+      const width = container.clientWidth || 1000;
+      const height = container.clientHeight || 480;
+
+      let pool = [];
+      if (treemapMode === 'caches' || treemapMode === 'all') {
+        pool = pool.concat(cachesData.map(it => ({ ...it, _kind: 'cache' })));
+      }
+      if (treemapMode === 'artifacts' || treemapMode === 'all') {
+        pool = pool.concat(artifactsData.map(it => ({ ...it, _kind: 'artifact' })));
+      }
+
+      if (currentCategoryFilter) {
+        pool = pool.filter(it => it.Category === currentCategoryFilter);
+      }
+
+      const items = pool
+        .filter(it => (it.SizeBytes || 0) > 0)
+        .map(it => ({
+          ...it,
+          _weight: treemapScale === 'sqrt' ? Math.pow(it.SizeBytes, 0.52) : it.SizeBytes
+        }))
+        .sort((a, b) => b._weight - a._weight);
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 text-base p-6 text-center">
+            <p class="font-semibold text-gray-200">Chưa có dữ liệu trong chế độ hiển thị này</p>
+            <p class="text-sm text-gray-400 mt-1">Chạy <code class="text-indigo-300 bg-gray-900 px-2 py-0.5 rounded">.\\scan.ps1</code> trong PowerShell để quét toàn bộ Project Build Artifacts và Dev Caches mới nhất.</p>
+          </div>
+        `;
+        return;
+      }
+
+      function layout(subItems, x, y, w, h) {
+        if (!subItems || subItems.length === 0) return;
+        if (subItems.length === 1) {
+          createTile(subItems[0], x, y, w, h);
+          return;
+        }
+
+        const total = subItems.reduce((s, it) => s + it._weight, 0);
+        let half = 0;
+        let mid = 0;
+        for (let i = 0; i < subItems.length; i++) {
+          half += subItems[i]._weight;
+          if (half >= total / 2 || i === subItems.length - 1) {
+            mid = i + 1;
+            break;
+          }
+        }
+
+        const groupA = subItems.slice(0, mid);
+        const groupB = subItems.slice(mid);
+        const totalA = groupA.reduce((s, it) => s + it._weight, 0);
+        const ratioA = total > 0 ? (totalA / total) : 0.5;
+
+        if (w >= h) {
+          const wA = w * ratioA;
+          const wB = w - wA;
+          layout(groupA, x, y, wA, h);
+          layout(groupB, x + wA, y, wB, h);
+        } else {
+          const hA = h * ratioA;
+          const hB = h - hA;
+          layout(groupA, x, y, w, hA);
+          layout(groupB, x, y + hA, w, hB);
+        }
+      }
+
+      function createTile(item, x, y, w, h) {
+        if (w < 6 || h < 6) return;
+
+        const tile = document.createElement('div');
+        tile.className = 'treemap-tile absolute rounded-xl border p-3 flex flex-col justify-between overflow-hidden select-none';
+        tile.style.left = Math.round(x) + 'px';
+        tile.style.top = Math.round(y) + 'px';
+        tile.style.width = Math.max(0, Math.round(w) - 4) + 'px';
+        tile.style.height = Math.max(0, Math.round(h) - 4) + 'px';
+
+        const isSafe = item.Group === 'Có thể xóa an toàn';
+        const isSelected = item._kind === 'artifact'
+          ? selectedArtifactPaths.has(item.Path)
+          : selectedCachePaths.has(item.Path);
+
+        let bgClass = '';
+        if (isSelected) {
+          bgClass = isSafe
+            ? 'bg-emerald-600/90 border-white ring-2 ring-white/80 text-white shadow-lg'
+            : 'bg-amber-600/90 border-white ring-2 ring-white/80 text-white shadow-lg';
+        } else {
+          bgClass = isSafe
+            ? 'bg-emerald-950/65 hover:bg-emerald-900/75 border-emerald-700/60 text-emerald-100'
+            : 'bg-amber-950/55 hover:bg-amber-900/70 border-amber-700/60 text-amber-100';
+        }
+
+        if (item.Increased && !isSelected) {
+          bgClass += ' ring-2 ring-rose-500';
+        }
+
+        tile.className += ' ' + bgClass;
+
+        const showFull = w > 105 && h > 58;
+        const showCompact = w > 55 && h > 34;
+
+        let innerHTML = '';
+        if (showFull) {
+          innerHTML = `
+            <div>
+              <div class="flex items-start justify-between gap-1.5">
+                <span class="font-bold text-sm leading-tight line-clamp-1">${escapeHtml(item.Name)}</span>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  ${item.Increased ? '<span class="text-xs bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold">+' + item.DeltaMB + 'M</span>' : ''}
+                  ${isSelected ? '<span class="w-5 h-5 rounded-full bg-white text-gray-900 text-xs font-extrabold flex items-center justify-center">✓</span>' : ''}
+                </div>
+              </div>
+              <div class="text-xs md:text-sm font-extrabold mt-1 opacity-95">${formatBytes(item.SizeBytes)}</div>
+            </div>
+            <div class="flex items-center justify-between text-xs opacity-80 font-mono">
+              <span class="truncate">${escapeHtml(item.Category)}</span>
+              ${(item.FileCount || 0) >= 10000 ? '<span title="Nhiều file nhỏ">⚡' + Math.round(item.FileCount / 1000) + 'k</span>' : ''}
+            </div>
+          `;
+        } else if (showCompact) {
+          innerHTML = `
+            <div class="flex items-center justify-between gap-1">
+              <span class="font-bold text-xs truncate leading-tight">${escapeHtml(item.Name)}</span>
+              ${isSelected ? '<span class="text-xs font-bold">✓</span>' : ''}
+            </div>
+            <div class="text-xs font-semibold opacity-90">${formatBytes(item.SizeBytes)}</div>
+          `;
+        } else {
+          innerHTML = `<div class="text-xs truncate font-bold text-center">${isSelected ? '✓ ' : ''}${formatBytes(item.SizeBytes)}</div>`;
+        }
+
+        tile.innerHTML = innerHTML;
+
+        tile.addEventListener('mouseenter', (e) => showTooltip(e, item, isSelected));
+        tile.addEventListener('mousemove', (e) => moveTooltip(e));
+        tile.addEventListener('mouseleave', hideTooltip);
+
+        tile.onclick = () => {
+          hideTooltip();
+          if (item._kind === 'artifact') {
+            toggleArtifactSelect(item.Path);
+          } else {
+            toggleCacheSelect(item.Path);
+          }
+        };
+
+        container.appendChild(tile);
+      }
+
+      layout(items, 2, 2, width - 4, height - 4);
+    }
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      ['caches', 'artifacts', 'env'].forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        if (t === tab) {
+          btn.className = 'px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 bg-blue-600 text-white shadow transition';
+        } else {
+          btn.className = 'px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 bg-gray-800 text-gray-300 hover:bg-gray-700 transition';
+        }
+      });
+
+      const subfilterBar = document.getElementById('subfilter-bar');
+      if (tab === 'env') {
+        subfilterBar.classList.add('hidden');
+      } else if (tab === 'artifacts') {
+        subfilterBar.classList.remove('hidden');
+        setTreemapMode('artifacts');
+      } else {
+        subfilterBar.classList.remove('hidden');
+        if (treemapMode === 'artifacts') setTreemapMode('all');
+      }
+
+      renderCurrentTabList();
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      ['all', 'safe', 'review', 'increased'].forEach(f => {
+        const btn = document.getElementById('filter-' + f);
+        if (!btn) return;
+        if (f === filter) {
+          btn.className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700';
+        }
+      });
+      renderCurrentTabList();
+    }
+
+    function setSortOrder(order) {
+      currentSort = order;
+      renderCurrentTabList();
+    }
+
+    function sortItems(list) {
+      return [...list].sort((a, b) => {
+        if (currentSort === 'files-desc') return (b.FileCount || 0) - (a.FileCount || 0);
+        if (currentSort === 'delta-desc') return (b.DeltaMB || 0) - (a.DeltaMB || 0);
+        if (currentSort === 'name-asc') return String(a.Name).localeCompare(String(b.Name));
+        return (b.SizeBytes || 0) - (a.SizeBytes || 0);
+      });
+    }
+
+    function clearSearch() {
+      const inp = document.getElementById('search-input');
+      inp.value = '';
+      renderCurrentTabList();
+    }
+
+    function copyTextQuick(text, label) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`✓ Đã sao chép ${label}`, 'success');
+      });
+    }
+
+    function renderCurrentTabList() {
+      const container = document.getElementById('items-list');
+      container.innerHTML = '';
+      const rawQuery = document.getElementById('search-input').value || '';
+      const query = rawQuery.trim().toLowerCase();
+
+      const clearBtn = document.getElementById('btn-clear-search');
+      if (query) clearBtn.classList.remove('hidden');
+      else clearBtn.classList.add('hidden');
+
+      if (currentMainTab === 'caches') {
+        renderCachesList(container, query);
+      } else if (currentMainTab === 'artifacts') {
+        renderArtifactsList(container, query);
+      } else {
+        renderEnvList(container, query);
+      }
+    }
+
+    function renderCachesList(container, query) {
+      const maxBytes = Math.max(1, ...cachesData.map(it => it.SizeBytes || 0));
+
+      const filtered = sortItems(cachesData.filter(item => {
+        if (currentCategoryFilter && item.Category !== currentCategoryFilter) return false;
+        if (currentFilter === 'safe' && item.Group !== 'Có thể xóa an toàn') return false;
+        if (currentFilter === 'review' && item.Group !== 'Cần xem lại trước khi xóa') return false;
+        if (currentFilter === 'increased' && !item.Increased) return false;
+        if (query) {
+          const hay = `${item.Name} ${item.Path} ${item.Category} ${item.Impact}`.toLowerCase();
+          if (!hay.includes(query)) return false;
+        }
+        return true;
+      }));
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center text-sm text-gray-400 border border-gray-800/60 rounded-2xl space-y-2">
+            <div class="text-base font-bold text-gray-300">Không tìm thấy mục nào khớp với bộ lọc</div>
+            <button onclick="setFilter('all'); setCategoryFilter(''); clearSearch();" class="mt-1 px-3.5 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 transition">Xóa bộ lọc tìm kiếm</button>
+          </div>`;
+        return;
+      }
+
+      filtered.forEach((item, index) => {
+        const isSafe = item.Group === 'Có thể xóa an toàn';
+        const isChecked = selectedCachePaths.has(item.Path);
+        const pctBar = Math.max(1.5, ((item.SizeBytes || 0) / maxBytes) * 100).toFixed(1);
+        const isHighIO = (item.FileCount || 0) >= 15000;
+
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border transition flex flex-col gap-3 ${
+          isChecked
+            ? 'bg-blue-950/35 border-blue-500/60 shadow-md'
+            : 'bg-gray-950/45 hover:bg-gray-950/75 border-gray-800/90'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <input type="checkbox" id="chk-cache-${index}" ${isChecked ? 'checked' : ''}
+                class="mt-1 w-5 h-5 rounded border-gray-700 text-blue-600 bg-gray-900 cursor-pointer flex-shrink-0">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <label for="chk-cache-${index}" class="font-bold text-base text-white cursor-pointer hover:text-blue-400 transition">${escapeHtml(item.Name)}</label>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-gray-800/90 text-gray-300 border border-gray-700 font-mono">${escapeHtml(item.Category)}</span>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+                    isSafe ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  }">
+                    ${isSafe ? '✓ Xóa an toàn' : '⚠️ Cần xem lại'}
+                  </span>
+                  ${isHighIO ? '<span class="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium" title="Số lượng file nhỏ lớn gây chậm quét virus và index ổ đĩa">⚡ Nhiều file nhỏ</span>' : ''}
+                  ${item.Increased ? '<span class="text-xs px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">▲ +' + item.DeltaMB + ' MB</span>' : ''}
+                </div>
+                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span class="text-xs md:text-sm font-mono text-gray-300 truncate">${escapeHtml(item.Path)}</span>
+                  <button type="button" class="btn-copy-path text-xs text-gray-400 hover:text-white px-2 py-0.5 rounded bg-gray-900 border border-gray-800 flex-shrink-0" title="Copy đường dẫn">Copy Path</button>
+                  <button type="button" class="btn-open-path text-xs text-indigo-300 hover:text-white px-2 py-0.5 rounded bg-indigo-950/50 border border-indigo-800/50 flex-shrink-0" title="Mở thư mục trong Explorer / Finder (Khi chạy qua Rust App)">📂 Mở</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-right flex-shrink-0">
+              <div class="text-base md:text-lg font-extrabold ${isSafe ? 'text-emerald-400' : 'text-amber-400'}">${formatBytes(item.SizeBytes)}</div>
+              <div class="text-xs text-gray-400 font-mono">${(item.FileCount || 0).toLocaleString()} files</div>
+            </div>
+          </div>
+
+          <!-- Relative Size Visual Bar -->
+          <div class="w-full bg-gray-900 h-2 rounded-full overflow-hidden">
+            <div class="${isSafe ? 'bg-emerald-500/80' : 'bg-amber-500/80'} h-full rounded-full" style="width: ${pctBar}%"></div>
+          </div>
+
+          <div class="p-3 rounded-lg bg-gray-900/75 border border-gray-800/80 text-xs md:text-sm text-gray-200 leading-relaxed">
+            <span class="text-gray-400 font-semibold">Ảnh hưởng:</span> ${escapeHtml(item.Impact)}
+          </div>
+
+          <div class="flex items-center justify-between gap-2 text-xs text-gray-400">
+            <div class="flex items-center gap-1.5 font-mono min-w-0">
+              <span class="text-gray-400 flex-shrink-0">Lệnh:</span>
+              <code class="text-emerald-300 bg-gray-900 px-2.5 py-1 rounded text-xs truncate">${escapeHtml(item.CleanCmd)}</code>
+            </div>
+            <button type="button" class="btn-copy-cmd text-xs text-blue-400 hover:text-blue-300 px-2.5 py-1 rounded bg-blue-950/40 border border-blue-800/40 flex-shrink-0 font-medium">Copy lệnh</button>
+          </div>
+        `;
+
+        card.querySelector('input[type="checkbox"]').addEventListener('change', () => toggleCacheSelect(item.Path));
+        card.querySelector('.btn-copy-path').addEventListener('click', () => copyTextQuick(item.Path, 'đường dẫn'));
+        card.querySelector('.btn-open-path').addEventListener('click', () => openFolderInOs(item.Path));
+        card.querySelector('.btn-copy-cmd').addEventListener('click', () => copyTextQuick(item.CleanCmd, 'lệnh dọn dẹp'));
+        container.appendChild(card);
+      });
+    }
+
+    function renderArtifactsList(container, query) {
+      if (artifactsData.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl border border-indigo-500/30 bg-indigo-950/15 text-sm text-gray-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-indigo-300 text-base">🚀 Sẵn sàng quét Project Build Artifacts trong máy</span>
+              <button onclick="copyScanCommand()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs md:text-sm transition">Copy lệnh quét</button>
+            </div>
+            <p class="leading-relaxed text-gray-300">Chạy <code class="text-emerald-300 bg-gray-900 px-2 py-0.5 rounded">powershell -ExecutionPolicy Bypass -File "$HOME\\disk-report\\scan.ps1"</code> để tự động phát hiện các thư mục <code class="text-white">node_modules</code>, <code class="text-white">target</code> (Rust/Maven), <code class="text-white">build</code> (Android/Gradle), <code class="text-white">.dart_tool</code>, <code class="text-white">.next</code>, <code class="text-white">.venv</code> và phân loại theo số ngày không hoạt động.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const filtered = sortItems(artifactsData.filter(item => {
+        if (currentCategoryFilter && item.Category !== currentCategoryFilter) return false;
+        if (currentFilter === 'safe' && !item.IsStale) return false;
+        if (currentFilter === 'review' && item.IsStale) return false;
+        if (query) {
+          const hay = `${item.Name} ${item.Path} ${item.Category} ${item.ArtifactType}`.toLowerCase();
+          if (!hay.includes(query)) return false;
+        }
+        return true;
+      }));
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center text-sm text-gray-400 border border-gray-800/60 rounded-xl">Không có Project Artifact nào khớp bộ lọc.</div>`;
+        return;
+      }
+
+      filtered.forEach((item, index) => {
+        const isChecked = selectedArtifactPaths.has(item.Path);
+        const isStale = !!item.IsStale;
+
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border transition flex flex-col gap-3 ${
+          isChecked
+            ? 'bg-blue-950/35 border-blue-500/60 shadow-md'
+            : 'bg-gray-950/45 hover:bg-gray-950/75 border-gray-800'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="chk-art-${index}" ${isChecked ? 'checked' : ''}
+                class="mt-1 w-5 h-5 rounded border-gray-700 text-blue-600 bg-gray-900 cursor-pointer">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <label for="chk-art-${index}" class="font-bold text-base text-white cursor-pointer hover:text-blue-400 transition">${escapeHtml(item.Name)}</label>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono">${escapeHtml(item.ArtifactType)}</span>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                    isStale ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  }">
+                    ${isStale ? '💤 Dự án cũ (' + item.DaysIdle + ' ngày chưa sửa)' : '🔥 Đang code (' + item.DaysIdle + ' ngày trước)'}
+                  </span>
+                </div>
+                <div class="text-xs md:text-sm font-mono text-gray-300 mt-1.5 break-all">${escapeHtml(item.Path)}</div>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <div class="text-base md:text-lg font-extrabold ${isStale ? 'text-emerald-400' : 'text-amber-400'}">${formatBytes(item.SizeBytes)}</div>
+              <div class="text-xs text-gray-400">${(item.FileCount || 0).toLocaleString()} files</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg bg-gray-900/80 border border-gray-800/80 text-xs md:text-sm text-gray-200 leading-relaxed">
+            <span class="text-gray-400 font-semibold">Ảnh hưởng:</span> ${escapeHtml(item.Impact)}
+          </div>
+        `;
+
+        card.querySelector('input[type="checkbox"]').addEventListener('change', () => toggleArtifactSelect(item.Path));
+        container.appendChild(card);
+      });
+    }
+
+    function renderEnvList(container, query) {
+      if (envIssuesData.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl border border-emerald-500/30 bg-emerald-950/15 text-sm text-gray-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-300 text-base">🔗 Kiểm tra Dead PATH & Biến môi trường Dev (WinTrash)</span>
+              <button onclick="copyScanCommand()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs md:text-sm transition">Copy lệnh quét</button>
+            </div>
+            <p class="leading-relaxed">Khi bạn chạy <code class="text-emerald-300 bg-gray-900 px-2 py-0.5 rounded">.\\scan.ps1</code>, công cụ sẽ kiểm tra từng đường dẫn trong <code class="text-white">PATH</code> (User & System) và các biến <code class="text-white">JAVA_HOME</code>, <code class="text-white">ANDROID_HOME</code>, <code class="text-white">FLUTTER_ROOT</code>, <code class="text-white">GOPATH</code>, <code class="text-white">NVM_HOME</code> để tìm các đường dẫn mồ côi đã bị xóa hoặc bị khai báo trùng lặp.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const filtered = envIssuesData.filter(item => {
+        if (!query) return true;
+        const hay = `${item.VarName} ${item.TargetValue} ${item.Type} ${item.Scope}`.toLowerCase();
+        return hay.includes(query);
+      });
+
+      filtered.forEach((item, index) => {
+        const isChecked = selectedEnvIds.has(item.Id);
+
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border transition flex flex-col gap-3 ${
+          isChecked
+            ? 'bg-blue-950/35 border-blue-500/60 shadow-md'
+            : 'bg-gray-950/45 hover:bg-gray-950/75 border-gray-800'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="chk-env-${index}" ${isChecked ? 'checked' : ''}
+                class="mt-1 w-5 h-5 rounded border-gray-700 text-blue-600 bg-gray-900 cursor-pointer">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <label for="chk-env-${index}" class="font-bold text-base text-white cursor-pointer hover:text-blue-400 transition">${escapeHtml(item.VarName)}</label>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-medium">${escapeHtml(item.Type)}</span>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-700 font-mono">Scope: ${escapeHtml(item.Scope)}</span>
+                </div>
+                <div class="text-xs md:text-sm font-mono text-rose-300 mt-1.5 break-all">${escapeHtml(item.TargetValue)}</div>
+              </div>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex-shrink-0 font-semibold">Dọn an toàn</span>
+          </div>
+
+          <div class="p-3 rounded-lg bg-gray-900/80 border border-gray-800/80 text-xs md:text-sm text-gray-200 leading-relaxed">
+            <span class="text-gray-400 font-semibold">Chi tiết:</span> ${escapeHtml(item.Impact)}
+          </div>
+        `;
+
+        card.querySelector('input[type="checkbox"]').addEventListener('change', () => toggleEnvSelect(item.Id));
+        container.appendChild(card);
+      });
+    }
+
+    function toggleCacheSelect(path) {
+      if (selectedCachePaths.has(path)) selectedCachePaths.delete(path);
+      else selectedCachePaths.add(path);
+      updateUI();
+    }
+
+    function toggleArtifactSelect(path) {
+      if (selectedArtifactPaths.has(path)) selectedArtifactPaths.delete(path);
+      else selectedArtifactPaths.add(path);
+      updateUI();
+    }
+
+    function toggleEnvSelect(id) {
+      if (selectedEnvIds.has(id)) selectedEnvIds.delete(id);
+      else selectedEnvIds.add(id);
+      updateUI();
+    }
+
+    function applyPreset(preset) {
+      if (preset === 'safe-all') {
+        cachesData.forEach(it => {
+          if (it.Group === 'Có thể xóa an toàn') selectedCachePaths.add(it.Path);
+        });
+        showToast('✓ Đã chọn tất cả Dev Caches an toàn', 'success');
+      } else if (preset === 'io-heavy') {
+        let count = 0;
+        cachesData.forEach(it => {
+          if (it.Group === 'Có thể xóa an toàn' && (it.FileCount || 0) >= 10000) {
+            selectedCachePaths.add(it.Path);
+            count++;
+          }
+        });
+        showToast(`✓ Đã chọn ${count} cache có trên 10.000 files nhỏ`, 'success');
+      } else if (preset === 'stale-artifacts') {
+        let count = 0;
+        artifactsData.forEach(it => {
+          if (it.IsStale) {
+            selectedArtifactPaths.add(it.Path);
+            count++;
+          }
+        });
+        if (count === 0) {
+          showToast('Chưa có dữ liệu dự án cũ (>30 ngày). Hãy chạy .\\scan.ps1!', 'info');
+        } else {
+          showToast(`✓ Đã chọn ${count} dự án cũ (>30 ngày)`, 'success');
+        }
+      }
+      updateUI();
+    }
+
+    function unselectRiskyItems() {
+      cachesData.forEach(it => {
+        if (it.Group !== 'Có thể xóa an toàn') selectedCachePaths.delete(it.Path);
+      });
+      artifactsData.forEach(it => {
+        if (!it.IsStale) selectedArtifactPaths.delete(it.Path);
+      });
+      showToast('✓ Đã loại bỏ các mục Cần xem lại khỏi danh sách', 'success');
+      updateUI();
+    }
+
+    function deselectAll() {
+      selectedCachePaths.clear();
+      selectedArtifactPaths.clear();
+      selectedEnvIds.clear();
+      updateUI();
+    }
+
+    function setStudioTab(tab) {
+      studioTab = tab;
+      document.getElementById('studio-tab-script').className = tab === 'script'
+        ? 'px-3 py-1 rounded-md bg-blue-600 text-white font-medium transition'
+        : 'px-3 py-1 rounded-md text-gray-400 hover:text-white transition';
+      document.getElementById('studio-tab-summary').className = tab === 'summary'
+        ? 'px-3 py-1 rounded-md bg-blue-600 text-white font-medium transition'
+        : 'px-3 py-1 rounded-md text-gray-400 hover:text-white transition';
+
+      const scriptEl = document.getElementById('script-preview');
+      const summaryEl = document.getElementById('summary-preview');
+      if (tab === 'script') {
+        scriptEl.classList.remove('hidden');
+        summaryEl.classList.add('hidden');
+      } else {
+        scriptEl.classList.add('hidden');
+        summaryEl.classList.remove('hidden');
+      }
+    }
+
+    function setScriptOs(os) {
+      scriptOs = os;
+      document.getElementById('os-btn-win').className = os === 'win'
+        ? 'px-2.5 py-1 rounded-md bg-indigo-600 text-white font-semibold transition'
+        : 'px-2.5 py-1 rounded-md text-gray-400 hover:text-white font-semibold transition';
+      document.getElementById('os-btn-mac').className = os === 'mac'
+        ? 'px-2.5 py-1 rounded-md bg-indigo-600 text-white font-semibold transition'
+        : 'px-2.5 py-1 rounded-md text-gray-400 hover:text-white font-semibold transition';
+      const dlText = document.getElementById('btn-download-text');
+      if (dlText) dlText.innerText = os === 'mac' ? 'Tải file .sh' : 'Tải file .ps1';
+      updateUI();
+    }
+
+    function getTauriInvoke() {
+      if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+        return window.__TAURI__.core.invoke;
+      }
+      if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+        return window.__TAURI_INTERNALS__.invoke;
+      }
+      return null;
+    }
+
+    async function runRustLiveScan() {
+      const btnText = document.getElementById('btn-live-scan-text');
+      const tauriInvoke = getTauriInvoke();
+
+      if (tauriInvoke) {
+        try {
+          btnText.innerText = 'Đang quét đa luồng...';
+          showToast('⚡ Tauri Rust Engine đang quét đa luồng (Rayon)...', 'info');
+          const freshPayload = await tauriInvoke('scan_now');
+          scanPayload.ScanTime = freshPayload.ScanTime;
+          normalizePayload(freshPayload);
+          initStats();
+          updateUI();
+          showToast(`✓ Đã quét xong trong ${freshPayload.ScanDurationMs || 0} ms!`, 'success');
+        } catch (err) {
+          showToast('⚠️ Lỗi khi quét qua Tauri: ' + err, 'info');
+        } finally {
+          btnText.innerText = 'Quét trực tiếp (Rust)';
+        }
+        return;
+      }
+
+      if (window.location.protocol === 'file:') {
+        showToast('💡 Hãy chạy ứng dụng qua Tauri (cargo tauri dev / build) để quét trực tiếp!', 'info');
+        copyScanCommand();
+        return;
+      }
+      try {
+        btnText.innerText = 'Đang quét đa luồng...';
+        showToast('⚡ Rust Scanner đang quét toàn bộ ổ đĩa đa luồng (Rayon)...', 'info');
+        const res = await fetch('/api/scan', { method: 'POST' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const freshPayload = await res.json();
+        scanPayload.ScanTime = freshPayload.ScanTime;
+        normalizePayload(freshPayload);
+        initStats();
+        updateUI();
+        showToast('✓ Đã cập nhật dữ liệu mới nhất từ Rust Scanner!', 'success');
+      } catch (err) {
+        showToast('💡 Chưa kết nối Rust Server — đã copy lệnh quét vào Clipboard', 'info');
+        copyScanCommand();
+      } finally {
+        btnText.innerText = 'Quét trực tiếp (Rust)';
+      }
+    }
+
+    async function openFolderInOs(targetPath) {
+      const tauriInvoke = getTauriInvoke();
+      if (tauriInvoke) {
+        try {
+          const ok = await tauriInvoke('open_path', { path: targetPath });
+          if (ok) {
+            showToast('📂 Đã mở thư mục trong hệ điều hành!', 'success');
+          } else {
+            copyTextQuick(targetPath, 'đường dẫn');
+          }
+        } catch (e) {
+          copyTextQuick(targetPath, 'đường dẫn');
+        }
+        return;
+      }
+
+      if (window.location.protocol === 'file:') {
+        copyTextQuick(targetPath, 'đường dẫn');
+        return;
+      }
+      try {
+        const res = await fetch('/api/open-path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: targetPath })
+        });
+        if (res.ok) {
+          showToast('📂 Đã mở thư mục trong hệ điều hành!', 'success');
+        } else {
+          copyTextQuick(targetPath, 'đường dẫn');
+        }
+      } catch (e) {
+        copyTextQuick(targetPath, 'đường dẫn');
+      }
+    }
+
+    function formatCleanCommand(cmd, pathStr, useWhatIf) {
+      if (scriptOs === 'mac') {
+        const bashCmd = cmd.includes('Remove-Item')
+          ? `rm -rf "${pathStr}/*" 2>/dev/null || rm -rf "${pathStr}"`
+          : cmd;
+        if (!useWhatIf) return bashCmd;
+        return `# [DRY-RUN] Sẽ thực thi: ${bashCmd}\necho "[Dry-Run] Sẽ thực thi: ${bashCmd.replace(/"/g, '\\"')}"`;
+      }
+      if (!useWhatIf) return cmd;
+      if (cmd.includes('Remove-Item')) {
+        return cmd + ' -WhatIf';
+      }
+      return `# [DRY-RUN -WhatIf] Lệnh dự kiến: ${cmd}\nWrite-Host "[Dry-Run] Sẽ thực thi: ${cmd.replace(/"/g, "'")}" -ForegroundColor Yellow`;
+    }
+
+    function updateUI() {
+      renderTreemap();
+      renderCurrentTabList();
+
+      let selBytes = 0;
+      let selFiles = 0;
+      let riskyCount = 0;
+      const selCaches = [];
+      const selArtifacts = [];
+      const selEnvs = [];
+
+      cachesData.forEach(it => {
+        if (selectedCachePaths.has(it.Path)) {
+          selBytes += (it.SizeBytes || 0);
+          selFiles += (it.FileCount || 0);
+          if (it.Group !== 'Có thể xóa an toàn') riskyCount++;
+          selCaches.push(it);
+        }
+      });
+
+      artifactsData.forEach(it => {
+        if (selectedArtifactPaths.has(it.Path)) {
+          selBytes += (it.SizeBytes || 0);
+          selFiles += (it.FileCount || 0);
+          if (!it.IsStale) riskyCount++;
+          selArtifacts.push(it);
+        }
+      });
+
+      envIssuesData.forEach(it => {
+        if (selectedEnvIds.has(it.Id)) {
+          selEnvs.push(it);
+        }
+      });
+
+      const totalSelectedCount = selCaches.length + selArtifacts.length + selEnvs.length;
+      const pctSelected = Math.min(100, (selBytes / grandTotalBytesGlobal) * 100).toFixed(1);
+
+      document.getElementById('stat-selected').innerText = formatBytes(selBytes);
+      document.getElementById('stat-selected-count').innerText = totalSelectedCount + ' mục';
+      document.getElementById('stat-selected-files').innerText = selFiles.toLocaleString() + ' files';
+      document.getElementById('stat-selected-bar').style.width = pctSelected + '%';
+      document.getElementById('selected-badge').innerText = totalSelectedCount + ' mục đã chọn';
+
+      // Update Risk Banner
+      const riskBanner = document.getElementById('risk-banner');
+      const riskIcon = document.getElementById('risk-icon');
+      const riskTitle = document.getElementById('risk-title');
+      const riskDesc = document.getElementById('risk-desc');
+      const btnUnselectRisky = document.getElementById('btn-unselect-risky');
+
+      if (totalSelectedCount === 0) {
+        riskBanner.className = 'p-3.5 rounded-xl bg-gray-950/80 border border-gray-800 text-xs md:text-sm flex items-start justify-between gap-2.5';
+        riskIcon.innerText = '🛡️';
+        riskTitle.className = 'font-bold text-gray-200';
+        riskTitle.innerText = 'Chưa chọn mục nào';
+        riskDesc.innerText = 'Chọn các mục bên trái hoặc bấm "🟢 Tất cả Cache an toàn" để tạo script.';
+        btnUnselectRisky.classList.add('hidden');
+      } else if (riskyCount === 0) {
+        riskBanner.className = 'p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs md:text-sm flex items-start justify-between gap-2.5';
+        riskIcon.innerText = '✅';
+        riskTitle.className = 'font-bold text-emerald-300';
+        riskTitle.innerText = 'Mức độ an toàn: Tuyệt đối (100% Safe Caches)';
+        riskDesc.innerText = `Giải phóng ${formatBytes(selBytes)} (${selFiles.toLocaleString()} files) mà không làm mất cấu hình IDE, SDK hay lịch sử chat.`;
+        btnUnselectRisky.classList.add('hidden');
+      } else {
+        riskBanner.className = 'p-3.5 rounded-xl bg-amber-950/35 border border-amber-500/50 text-xs md:text-sm flex items-start justify-between gap-2.5';
+        riskIcon.innerText = '⚠️';
+        riskTitle.className = 'font-bold text-amber-300';
+        riskTitle.innerText = `Chú ý: Có ${riskyCount} mục thuộc nhóm "Cần xem lại"`;
+        riskDesc.innerText = 'Bao gồm SDK, Docker, hoặc lịch sử Sessions. Hãy kiểm tra kỹ trước khi chạy lệnh.';
+        btnUnselectRisky.classList.remove('hidden');
+      }
+
+      const scriptBox = document.getElementById('script-preview');
+      const summaryBox = document.getElementById('summary-preview');
+
+      if (totalSelectedCount === 0) {
+        scriptBox.innerText = '# Hãy tick chọn các mục ở danh sách bên trái (Dev Caches, Project Artifacts hoặc Dead PATH) để tự động tạo script PowerShell tương ứng...';
+        document.getElementById('script-line-count').innerText = '1 dòng';
+        summaryBox.innerHTML = `<div class="text-gray-400 text-center py-6 text-sm">Chưa có mục nào được chọn.</div>`;
+        return;
+      }
+
+      // Build Summary View
+      summaryBox.innerHTML = [...selCaches, ...selArtifacts].map(it => `
+        <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-900 border border-gray-800 text-xs md:text-sm">
+          <div class="truncate pr-2">
+            <span class="font-semibold text-gray-200">${escapeHtml(it.Name)}</span>
+            <div class="text-xs font-mono text-gray-400 truncate">${escapeHtml(it.Path)}</div>
+          </div>
+          <span class="font-mono font-bold text-emerald-400 flex-shrink-0">${formatBytes(it.SizeBytes)}</span>
+        </div>
+      `).join('');
+
+      const useWhatIf = document.getElementById('opt-whatif').checked;
+      const useBackupEnv = document.getElementById('opt-backup-env').checked;
+      const useStopDaemons = document.getElementById('opt-stop-daemons').checked;
+      const isMac = scriptOs === 'mac';
+
+      let script = isMac ? '#!/usr/bin/env bash\n' : '';
+      script += '# =========================================================================\n';
+      script += isMac
+        ? '# SCRIPT DỌN DẸP Ổ ĐĨA & MÔI TRƯỜNG DEV (macOS BASH / ZSH)\n'
+        : '# SCRIPT DỌN DẸP Ổ ĐĨA & MÔI TRƯỜNG DEV (WINDOWS POWERSHELL)\n';
+      script += `# Đã chọn: ${selCaches.length} Caches/SDKs, ${selArtifacts.length} Project Artifacts, ${selEnvs.length} Dead PATH/ENV\n`;
+      script += `# Tổng dung lượng giải phóng: ${formatBytes(selBytes)} (${selFiles.toLocaleString()} files)\n`;
+      if (useWhatIf) {
+        script += '# CHẾ ĐỘ: DRY-RUN — Chỉ kiểm tra thử, KHÔNG xóa dữ liệu thật\n';
+      }
+      script += '# =========================================================================\n\n';
+
+      if (useStopDaemons && (selCaches.length > 0 || selArtifacts.length > 0)) {
+        script += '# --- BƯỚC 0: Dừng các Daemon đang giữ khóa file (Gradle / ADB / Xcode) ---\n';
+        if (isMac) {
+          script += 'echo "Đang kiểm tra và dừng các tiến trình daemon giữ khóa file..."\n';
+          script += 'command -v gradle >/dev/null 2>&1 && gradle --stop 2>/dev/null\n';
+          script += 'command -v adb >/dev/null 2>&1 && adb kill-server 2>/dev/null\n';
+          script += 'killall -9 com.apple.CoreSimulator.CoreSimulatorService 2>/dev/null || true\n\n';
+        } else {
+          script += 'Write-Host "Đang kiểm tra và dừng các tiến trình daemon giữ khóa file..." -ForegroundColor DarkCyan\n';
+          script += 'if (Get-Command gradle -ErrorAction SilentlyContinue) { gradle --stop 2>$null }\n';
+          script += 'if (Get-Command adb -ErrorAction SilentlyContinue) { adb kill-server 2>$null }\n\n';
+        }
+      }
+
+      if (selCaches.length > 0) {
+        script += '# --- PHẦN 1: DỌN DẸP DEV CACHES & SDKS ---\n';
+        selCaches.forEach((it, idx) => {
+          script += `# [Cache ${idx + 1}/${selCaches.length}] ${it.Name} (${formatBytes(it.SizeBytes)})\n`;
+          script += `# Đường dẫn: ${it.Path}\n`;
+          script += isMac
+            ? `echo "Đang dọn dẹp: ${it.Name}..."\n`
+            : `Write-Host "Đang dọn dẹp: ${it.Name}..." -ForegroundColor Cyan\n`;
+          script += formatCleanCommand(it.CleanCmd, it.Path, useWhatIf) + '\n\n';
+        });
+      }
+
+      if (selArtifacts.length > 0) {
+        script += '# --- PHẦN 2: DỌN DẸP PROJECT BUILD ARTIFACTS ---\n';
+        selArtifacts.forEach((it, idx) => {
+          script += `# [Artifact ${idx + 1}/${selArtifacts.length}] ${it.Name} (${formatBytes(it.SizeBytes)} • ${it.DaysIdle} ngày chưa sửa)\n`;
+          script += isMac
+            ? `echo "Đang xóa artifact: ${it.Path}..."\n`
+            : `Write-Host "Đang xóa artifact: ${it.Path}..." -ForegroundColor Magenta\n`;
+          script += formatCleanCommand(it.CleanCmd, it.Path, useWhatIf) + '\n\n';
+        });
+      }
+
+      if (selEnvs.length > 0) {
+        script += '# --- PHẦN 3: DỌN DẸP DEAD PATH & BIẾN MÔI TRƯỜNG BỊ HỎNG ---\n';
+        if (useBackupEnv) {
+          if (isMac) {
+            script += 'BACKUP_FILE="$HOME/disk-report/env-backup-$(date +%Y%m%d-%H%M%S).txt"\n';
+            script += 'echo "PATH=$PATH" > "$BACKUP_FILE"\n';
+            script += 'echo "Đã sao lưu PATH hiện tại vào: $BACKUP_FILE"\n\n';
+          } else {
+            script += '$backupFile = "$HOME\\disk-report\\env-backup-$(Get-Date -Format \'yyyyMMdd-HHmmss\').txt"\n';
+            script += '"USER_PATH=" + [Environment]::GetEnvironmentVariable("Path", "User") + "`r`nMACHINE_PATH=" + [Environment]::GetEnvironmentVariable("Path", "Machine") | Out-File -FilePath $backupFile -Encoding UTF8\n';
+            script += 'Write-Host "Đã sao lưu PATH hiện tại vào: $backupFile" -ForegroundColor Green\n\n';
+          }
+        }
+        selEnvs.forEach((it, idx) => {
+          script += `# [ENV ${idx + 1}/${selEnvs.length}] ${it.Type} - ${it.VarName}: ${it.TargetValue}\n`;
+          if (useWhatIf) {
+            script += isMac
+              ? `echo "[Dry-Run] Sẽ gỡ bỏ đường dẫn lỗi: ${it.TargetValue} khỏi ${it.VarName}"\n\n`
+              : `Write-Host "[Dry-Run] Sẽ gỡ bỏ đường dẫn lỗi: ${it.TargetValue} khỏi ${it.VarName}" -ForegroundColor Yellow\n\n`;
+          } else {
+            script += isMac
+              ? `echo "Đang làm sạch biến môi trường: ${it.VarName} (${it.TargetValue})..."\n`
+              : `Write-Host "Đang làm sạch biến môi trường: ${it.VarName} (${it.TargetValue})..." -ForegroundColor Yellow\n`;
+            script += it.CleanCmd + '\n\n';
+          }
+        });
+      }
+
+      script += isMac
+        ? 'echo "Hoàn tất quy trình dọn dẹp các mục đã chọn!"\n'
+        : 'Write-Host "Hoàn tất quy trình dọn dẹp các mục đã chọn!" -ForegroundColor Green\n';
+      scriptBox.innerText = script;
+      document.getElementById('script-line-count').innerText = script.split('\n').length + ' dòng';
+    }
+
+    function copyScript() {
+      const scriptBox = document.getElementById('script-preview');
+      navigator.clipboard.writeText(scriptBox.innerText).then(() => {
+        showToast('✓ Đã sao chép toàn bộ Script!', 'success');
+      });
+    }
+
+    function copyScanCommand() {
+      const cmd = scriptOs === 'mac'
+        ? 'cargo run --release'
+        : 'powershell -ExecutionPolicy Bypass -File "$HOME\\disk-report\\scan.ps1"';
+      navigator.clipboard.writeText(cmd).then(() => {
+        showToast('✓ Đã copy lệnh quét vào Clipboard!', 'success');
+      });
+    }
+
+    function downloadScript() {
+      const script = document.getElementById('script-preview').innerText;
+      const ext = scriptOs === 'mac' ? 'sh' : 'ps1';
+      const filename = `cleanup-dev-tools.${ext}`;
+      const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      showToast(`✓ Đã tải xuống file ${filename}`, 'success');
+    }
+
+    // Keyboard shortcuts: '/' to focus search, 'Escape' to clear filters
+    window.addEventListener('keydown', (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName : '';
+      if (e.key === '/' && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+        e.preventDefault();
+        document.getElementById('search-input').focus();
+      } else if (e.key === 'Escape') {
+        if (activeTag === 'INPUT') {
+          document.activeElement.blur();
+        }
+        clearSearch();
+        setCategoryFilter('');
+      }
+    });
+
+    window.addEventListener('resize', renderTreemap);
+    try {
+      const savedFont = localStorage.getItem('diskReportFontSize');
+      if (savedFont) setFontSize(parseFloat(savedFont));
+    } catch (e) {}
+    initStats();
+    updateUI();
+
+    // Khi chay trong cua so Tauri v2 Desktop App, tu dong nap du lieu moi nhat tu Rust
+    window.addEventListener('DOMContentLoaded', async () => {
+      const tauriInvoke = getTauriInvoke();
+      if (tauriInvoke) {
+        try {
+          const initial = await tauriInvoke('get_initial_data');
+          if (initial && initial.Caches) {
+            scanPayload.ScanTime = initial.ScanTime;
+            normalizePayload(initial);
+            initStats();
+            updateUI();
+          }
+        } catch (e) {}
+      }
+    });
+  </script>
+</body>
+</html>
