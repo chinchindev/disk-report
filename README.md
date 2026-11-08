@@ -17,32 +17,79 @@ Công cụ phân tích chuyên sâu **Dev Caches**, **Project Build Artifacts** 
 
 ---
 
-## 📦 Tải bản cài đặt dựng sẵn từ GitHub Actions / Releases
+## 📥 Hướng dẫn Tải & Cài đặt lên máy
 
-Mỗi khi push code lên nhánh `main`, **GitHub Actions** ([`.github/workflows/build-release.yml`](.github/workflows/build-release.yml)) sẽ tự động biên dịch trên máy chủ đám mây của GitHub (không cần cài Visual Studio C++ Build Tools trên máy cá nhân) và xuất ra:
+Bạn có thể tải các bản cài đặt dựng sẵn từ trang **[GitHub Releases](https://github.com/chinchindev/disk-report/releases)** hoặc mục **Artifacts** trong **[GitHub Actions](https://github.com/chinchindev/disk-report/actions)**.
 
-1. **Windows (`x64`)**:
-   - `DevDiskReport-Portable-win-x64.exe` (Chạy trực tiếp không cần cài đặt)
-   - `DevDiskReport_2.0.0_x64-setup.exe` & `.msi` (Bộ cài đặt chuẩn Windows)
-2. **macOS (`Apple Silicon ARM64`)**:
-   - `DevDiskReport_2.0.0_aarch64.dmg` & `DevDiskReport.app`
+### 🪟 1. Cài đặt trên Windows (Windows 10 / 11 - 64-bit)
 
-👉 Vào mục **[Actions](https://github.com/chinchindev/disk-report/actions)** hoặc **[Releases](https://github.com/chinchindev/disk-report/releases)** trên GitHub để tải về trực tiếp.
+Trên Windows có **3 lựa chọn** tùy theo nhu cầu của bạn:
+
+#### Cách A: Bản Portable — Chạy ngay không cần cài đặt (Khuyên dùng)
+1. Tải file **`DevDiskReport-Portable-win-x64.exe`**.
+2. Nhấp đúp chuột vào file để mở trực tiếp ứng dụng.
+3. Bấm nút **"⚡ Quét trực tiếp (Rust)"** ở góc trên bên phải để quét toàn bộ ổ đĩa của máy bạn.
+
+#### Cách B: Bộ cài đặt chuẩn Windows (`.exe` hoặc `.msi`)
+1. Tải một trong hai file:
+   - **`DevDiskReport_2.0.0_x64-setup.exe`** (Bộ cài NSIS nhỏ gọn, hỗ trợ cài nhanh cho User hiện tại).
+   - **`DevDiskReport_2.0.0_x64_en-US.msi`** (Bộ cài Windows Installer chuẩn).
+2. Nhấp đúp chuột để chạy trình cài đặt -> Bấm **Next / Install**.
+3. Sau khi cài xong, mở **DevDiskReport** từ **Start Menu** hoặc **Desktop Shortcut**.
+
+> 💡 **Lưu ý về Windows SmartScreen:**
+> Vì đây là ứng dụng mã nguồn mở tự build trên GitHub (chưa mua chứng chỉ EV Code Signing của Microsoft), lần đầu mở trên Windows có thể hiện bảng xanh *"Windows protected your PC"*. Bạn chỉ cần bấm vào chữ **More info** -> chọn **Run anyway** là chạy bình thường.
 
 ---
 
-## 🛠️ Chạy nhanh tại máy (Local)
+### 🍎 2. Cài đặt trên macOS (Apple Silicon M1 / M2 / M3 / M4)
 
-### 1. Từ môi trường WSL2 (Quét Hybrid cả WSL2 + Windows):
-```bash
-./run-wsl.sh
-```
+1. Tải file **`DevDiskReport_2.0.0_aarch64.dmg`** (hoặc `DevDiskReport-macos-arm64.app.tar.gz`).
+2. Nhấp đúp vào file `.dmg` vừa tải và kéo biểu tượng **DevDiskReport.app** vào thư mục **Applications**.
+3. **Mở lần đầu trên macOS (Bỏ qua Gatekeeper cho app chưa ký Apple Developer ID):**
+   Mở **Terminal** và chạy lệnh sau một lần duy nhất:
+   ```bash
+   xattr -cr /Applications/DevDiskReport.app
+   open /Applications/DevDiskReport.app
+   ```
 
-### 2. Từ Windows PowerShell (Không cần cài Rust):
+---
+
+### 🐧 3. Sử dụng trên môi trường WSL2 (Windows Subsystem for Linux)
+
+Nếu bạn đang dùng **WSL2 (Ubuntu / Debian)** song song với Windows:
+
+1. Clone repository về máy:
+   ```bash
+   git clone https://github.com/chinchindev/disk-report.git
+   cd disk-report
+   ```
+2. Chạy lệnh quét **Hybrid (Quét đồng thời cả `/home/<user>` trong WSL2 lẫn `C:\Users\<user>` trên Windows)**:
+   ```bash
+   ./run-wsl.sh
+   ```
+   Dashboard sẽ tự động cập nhật dữ liệu của cả 2 môi trường và mở lên trình duyệt Windows.
+
+---
+
+## 🛠️ Tự Build từ mã nguồn tại máy (Dành cho Developer)
+
+### 1. Chạy bằng PowerShell thuần trên Windows (Không cần cài Rust):
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$HOME\disk-report\scan.ps1"
 ```
 
-### 3. Build Tauri v2 Desktop App tại máy:
-- **Windows**: `powershell -ExecutionPolicy Bypass -File "$HOME\disk-report\build-app.ps1"`
-- **macOS**: `./build-app.sh`
+### 2. Tự Build ứng dụng Tauri v2 Desktop tại máy:
+- **Trên Windows** (Tự động kiểm tra/cài đặt `vs_buildtools` & `cargo-tauri`):
+  ```powershell
+  # Chạy thử cửa sổ Dev:
+  powershell -ExecutionPolicy Bypass -File "$HOME\disk-report\build-app.ps1" -Dev
+
+  # Đóng gói ra file .exe / .msi trong target\release\bundle:
+  powershell -ExecutionPolicy Bypass -File "$HOME\disk-report\build-app.ps1"
+  ```
+- **Trên macOS**:
+  ```bash
+  ./build-app.sh --dev   # Chạy chế độ Dev
+  ./build-app.sh         # Đóng gói ra .app và .dmg
+  ```
