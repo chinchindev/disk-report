@@ -984,7 +984,7 @@ pub fn run_full_scan(previous_map: &HashMap<String, f64>) -> ScanPayload {
         || scan_project_artifacts(&scan_time, 30, 5.0),
     );
     let env_issues = scan_env_issues();
-    let duration_ms = start.elapsed().as_millis();
+    let duration_ms = start.elapsed().as_millis() as u64;
 
     ScanPayload {
         scan_time,

@@ -63,7 +63,7 @@ pub struct ScanPayload {
     #[serde(default)]
     pub platform: String,
     #[serde(default)]
-    pub scan_duration_ms: u128,
+    pub scan_duration_ms: u64,
     #[serde(default)]
     pub caches: Vec<CacheItem>,
     #[serde(default)]
